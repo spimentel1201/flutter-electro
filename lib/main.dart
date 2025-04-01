@@ -4,6 +4,8 @@ import 'package:get_it/get_it.dart';
 import 'package:electro_workshop/services/api_service.dart';
 import 'package:electro_workshop/services/auth_service.dart';
 import 'package:electro_workshop/services/inventory_service.dart';
+import 'package:electro_workshop/screens/login_screen.dart';
+import 'package:electro_workshop/screens/home_screen.dart';
 
 // Service locator
 final GetIt getIt = GetIt.instance;
@@ -51,7 +53,10 @@ class MyApp extends StatelessWidget {
           elevation: 2,
         ),
       ),
-      home: const MyHomePage(title: 'Electronics Workshop Manager'),
+      home: const LoginScreen(),
+      routes: {
+        '/home': (context) => const HomeScreen(),
+      },
     );
   }
 }
