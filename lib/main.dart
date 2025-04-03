@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:electro_workshop/services/api_service.dart';
 import 'package:electro_workshop/services/auth_service.dart';
 import 'package:electro_workshop/services/inventory_service.dart';
+import 'package:electro_workshop/services/product_service.dart';
 import 'package:electro_workshop/screens/login_screen.dart';
 import 'package:electro_workshop/screens/home_screen.dart';
 
@@ -22,6 +23,10 @@ void setupServiceLocator() {
   
   getIt.registerLazySingleton<InventoryService>(
     () => InventoryService(apiService: getIt<ApiService>()),
+  );
+  
+  getIt.registerLazySingleton<ProductService>(
+    () => ProductService(apiService: getIt<ApiService>()),
   );
 }
 
