@@ -33,7 +33,12 @@ class RepairOrder {
   final DateTime? warrantyExpiration;
   final List<Map<String, dynamic>>? accessories;
 
+  var condition;
+
+  String issue;
+
   RepairOrder({
+    required this.issue,
     required this.id,
     required this.customer,
     required this.deviceType,
@@ -95,7 +100,7 @@ class RepairOrder {
       notes: notes ?? this.notes,
       hasWarranty: hasWarranty ?? this.hasWarranty,
       warrantyExpiration: warrantyExpiration ?? this.warrantyExpiration,
-      accessories: accessories ?? this.accessories,
+      accessories: accessories ?? this.accessories, issue: '',
     );
   }
 
@@ -152,7 +157,7 @@ class RepairOrder {
       warrantyExpiration: map['warrantyExpiration'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['warrantyExpiration'])
           : null,
-      accessories: map['accessories'] != null ? List<Map<String, dynamic>>.from(map['accessories']) : null,
+      accessories: map['accessories'] != null ? List<Map<String, dynamic>>.from(map['accessories']) : null, issue: '',
     );
   }
 
