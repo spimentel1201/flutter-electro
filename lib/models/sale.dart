@@ -4,193 +4,217 @@ import 'package:electro_workshop/models/customer.dart';
 import 'package:electro_workshop/models/user.dart';
 
 class SaleItem {
-  final int id;
-  final Product product;
+  final String id;
+  final String saleId;
+  final String productId;
   final int quantity;
-  final double unitPrice;
+  final double price;
   final double discount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  
+  // Optional reference to related product
+  final Product? product;
 
   SaleItem({
     required this.id,
-    required this.product,
+    required this.saleId,
+    required this.productId,
     required this.quantity,
-    required this.unitPrice,
+    required this.price,
     this.discount = 0.0,
+    required this.createdAt,
+    required this.updatedAt,
+    this.product,
   });
 
-  double get subtotal => unitPrice * quantity;
+  double get subtotal => price * quantity;
   double get totalDiscount => discount * quantity;
   double get total => subtotal - totalDiscount;
 
   SaleItem copyWith({
-    int? id,
-    Product? product,
+    String? id,
+    String? saleId,
+    String? productId,
     int? quantity,
-    double? unitPrice,
+    double? price,
     double? discount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Product? product,
   }) {
     return SaleItem(
       id: id ?? this.id,
-      product: product ?? this.product,
+      saleId: saleId ?? this.saleId,
+      productId: productId ?? this.productId,
       quantity: quantity ?? this.quantity,
-      unitPrice: unitPrice ?? this.unitPrice,
+      price: price ?? this.price,
       discount: discount ?? this.discount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      product: product ?? this.product,
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'product': product.toMap(),
+      'saleId': saleId,
+      'productId': productId,
       'quantity': quantity,
-      'unitPrice': unitPrice,
+      'price': price,
       'discount': discount,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
-  factory SaleItem.fromMap(Map<String, dynamic> map) {
+  factory SaleItem.fromJson(Map<String, dynamic> json) {
     return SaleItem(
-      id: map['id']?.toInt() ?? 0,
-      product: Product.fromMap(map['product']),
-      quantity: map['quantity']?.toInt() ?? 0,
-      unitPrice: map['unitPrice']?.toDouble() ?? 0.0,
-      discount: map['discount']?.toDouble() ?? 0.0,
+      id: json['id'],
+      saleId: json['saleId'],
+      productId: json['productId'],
+      quantity: json['quantity'],
+      price: json['price'].toDouble(),
+      discount: json['discount']?.toDouble() ?? 0.0,
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+      product: json['product'] != null ? Product.fromJson(json['product']) : null,
     );
   }
-
-  String toJson() => json.encode(toMap());
-
-  factory SaleItem.fromJson(String source) => SaleItem.fromMap(json.decode(source));
-}
-
-enum PaymentMethod {
-  cash,
-  creditCard,
-  debitCard,
-  bankTransfer,
-  check,
-  other
-}
-
-enum SaleStatus {
-  pending,
-  completed,
-  cancelled,
-  refunded
 }
 
 class Sale {
-  final int id;
-  final String invoiceNumber;
-  final Customer customer;
-  final User seller;
+  final String id;
+  final String? customerId;
+  final String userId;
+  final String? customerName;
+  final double totalAmount;
+  final String paymentMethod;
+  final DateTime createdAt;
+  final DateTime updatedAt;
   final List<SaleItem> items;
-  final DateTime saleDate;
-  final SaleStatus status;
-  final PaymentMethod paymentMethod;
-  final double taxRate;
-  final double taxAmount;
-  final double subtotal;
-  final double totalDiscount;
-  final double total;
+  final double? taxRate;
+  final double? taxAmount;
+  final double? subtotal;
+  final double? totalDiscount;
   final String? notes;
+  
+  // Optional references to related objects
+  final Customer? customer;
+  final User? user;
 
   Sale({
     required this.id,
-    required this.invoiceNumber,
-    required this.customer,
-    required this.seller,
-    required this.items,
-    required this.saleDate,
-    required this.status,
+    this.customerId,
+    required this.userId,
+    this.customerName,
+    required this.totalAmount,
     required this.paymentMethod,
-    required this.taxRate,
-    required this.taxAmount,
-    required this.subtotal,
-    required this.totalDiscount,
-    required this.total,
+    required this.createdAt,
+    required this.updatedAt,
+    this.items = const [],
+    this.taxRate,
+    this.taxAmount,
+    this.subtotal,
+    this.totalDiscount,
     this.notes,
+    this.customer,
+    this.user,
   });
 
   Sale copyWith({
-    int? id,
-    String? invoiceNumber,
-    Customer? customer,
-    User? seller,
+    String? id,
+    String? customerId,
+    String? userId,
+    String? customerName,
+    double? totalAmount,
+    String? paymentMethod,
+    DateTime? createdAt,
+    DateTime? updatedAt,
     List<SaleItem>? items,
-    DateTime? saleDate,
-    SaleStatus? status,
-    PaymentMethod? paymentMethod,
     double? taxRate,
     double? taxAmount,
     double? subtotal,
     double? totalDiscount,
-    double? total,
     String? notes,
+    Customer? customer,
+    User? user,
   }) {
     return Sale(
       id: id ?? this.id,
-      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
-      customer: customer ?? this.customer,
-      seller: seller ?? this.seller,
-      items: items ?? this.items,
-      saleDate: saleDate ?? this.saleDate,
-      status: status ?? this.status,
+      customerId: customerId ?? this.customerId,
+      userId: userId ?? this.userId,
+      customerName: customerName ?? this.customerName,
+      totalAmount: totalAmount ?? this.totalAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      items: items ?? this.items,
       taxRate: taxRate ?? this.taxRate,
       taxAmount: taxAmount ?? this.taxAmount,
       subtotal: subtotal ?? this.subtotal,
       totalDiscount: totalDiscount ?? this.totalDiscount,
-      total: total ?? this.total,
       notes: notes ?? this.notes,
+      customer: customer ?? this.customer,
+      user: user ?? this.user,
     );
   }
 
-  Map<String, dynamic> toMap() {
+  factory Sale.fromJson(Map<String, dynamic> json) {
+    List<SaleItem> itemsList = [];
+    if (json['items'] != null) {
+      itemsList = (json['items'] as List)
+          .map((item) => SaleItem.fromJson(item))
+          .toList();
+    }
+
+    return Sale(
+      id: json['id'],
+      customerId: json['customerId'],
+      userId: json['userId'],
+      customerName: json['customerName'],
+      totalAmount: json['totalAmount'].toDouble(),
+      paymentMethod: json['paymentMethod'],
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+      items: itemsList,
+      taxRate: json['taxRate']?.toDouble(),
+      taxAmount: json['taxAmount']?.toDouble(),
+      subtotal: json['subtotal']?.toDouble(),
+      totalDiscount: json['totalDiscount']?.toDouble(),
+      notes: json['notes'],
+      customer: json['customer'] != null ? Customer.fromJson(json['customer']) : null,
+      user: json['user'] != null ? User.fromJson(json['user']) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'invoiceNumber': invoiceNumber,
-      'customer': customer.toMap(),
-      'seller': seller.toMap(),
-      'items': items.map((x) => x.toMap()).toList(),
-      'saleDate': saleDate.millisecondsSinceEpoch,
-      'status': status.toString().split('.').last,
-      'paymentMethod': paymentMethod.toString().split('.').last,
+      'customerId': customerId,
+      'userId': userId,
+      'customerName': customerName,
+      'totalAmount': totalAmount,
+      'paymentMethod': paymentMethod,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'items': items.map((item) => item.toJson()).toList(),
       'taxRate': taxRate,
       'taxAmount': taxAmount,
       'subtotal': subtotal,
       'totalDiscount': totalDiscount,
-      'total': total,
       'notes': notes,
     };
   }
+}
 
-  factory Sale.fromMap(Map<String, dynamic> map) {
-    return Sale(
-      id: map['id']?.toInt() ?? 0,
-      invoiceNumber: map['invoiceNumber'] ?? '',
-      customer: Customer.fromMap(map['customer']),
-      seller: User.fromMap(map['seller']),
-      items: List<SaleItem>.from(map['items']?.map((x) => SaleItem.fromMap(x))),
-      saleDate: DateTime.fromMillisecondsSinceEpoch(map['saleDate']),
-      status: SaleStatus.values.firstWhere(
-        (e) => e.toString().split('.').last == map['status'],
-        orElse: () => SaleStatus.pending,
-      ),
-      paymentMethod: PaymentMethod.values.firstWhere(
-        (e) => e.toString().split('.').last == map['paymentMethod'],
-        orElse: () => PaymentMethod.cash,
-      ),
-      taxRate: map['taxRate']?.toDouble() ?? 0.0,
-      taxAmount: map['taxAmount']?.toDouble() ?? 0.0,
-      subtotal: map['subtotal']?.toDouble() ?? 0.0,
-      totalDiscount: map['totalDiscount']?.toDouble() ?? 0.0,
-      total: map['total']?.toDouble() ?? 0.0,
-      notes: map['notes'],
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory Sale.fromJson(String source) => Sale.fromMap(json.decode(source));
+// PaymentMethod enum to match Prisma schema
+class PaymentMethod {
+  static const String CASH = 'CASH';
+  static const String CREDIT_CARD = 'CREDIT_CARD';
+  static const String DEBIT_CARD = 'DEBIT_CARD';
+  static const String TRANSFER = 'TRANSFER';
+  static const String YAPE = 'YAPE';
+  static const String PLIN = 'PLIN';
 }

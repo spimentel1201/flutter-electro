@@ -1,173 +1,98 @@
 import 'dart:convert';
 import 'package:electro_workshop/models/user.dart';
 import 'package:electro_workshop/models/customer.dart';
-
-enum RepairStatus {
-  pending,
-  diagnosed,
-  inProgress,
-  waitingForParts,
-  completed,
-  delivered,
-  cancelled
-}
+import 'package:electro_workshop/models/repair_order_item.dart';
 
 class RepairOrder {
-  final int id;
-  final Customer customer;
-  final String deviceType;
-  final String brand;
-  final String model;
-  final String serialNumber;
-  final String issueDescription;
-  final RepairStatus status;
-  final DateTime createdAt;
-  final DateTime? completedAt;
-  final User? assignedTechnician;
-  final double? estimatedCost;
-  final double? finalCost;
-  final double? initialInspectionCost;
-  final List<String>? images;
+  final String id;
+  final String customerId;
+  final String technicianId;
+  final String status;
+  final String description;
   final String? notes;
-  final bool hasWarranty;
-  final DateTime? warrantyExpiration;
-  final List<Map<String, dynamic>>? accessories;
-
-  var condition;
-
-  String issue;
+  final double initialReviewCost;
+  final double totalCost;
+  final DateTime startDate;
+  final DateTime? endDate;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<RepairOrderItem> items;
+  
+  // Optional references to related objects
+  final Customer? customer;
+  final User? technician;
 
   RepairOrder({
-    required this.issue,
     required this.id,
-    required this.customer,
-    required this.deviceType,
-    required this.brand,
-    required this.model,
-    required this.serialNumber,
-    required this.issueDescription,
+    required this.customerId,
+    required this.technicianId,
     required this.status,
-    required this.createdAt,
-    this.completedAt,
-    this.assignedTechnician,
-    this.estimatedCost,
-    this.finalCost,
-    this.initialInspectionCost,
-    this.images,
+    required this.description,
     this.notes,
-    this.hasWarranty = false,
-    this.warrantyExpiration,
-    this.accessories,
+    this.initialReviewCost = 0.0,
+    this.totalCost = 0.0,
+    required this.startDate,
+    this.endDate,
+    required this.createdAt,
+    required this.updatedAt,
+    this.items = const [],
+    this.customer,
+    this.technician,
   });
 
-  RepairOrder copyWith({
-    int? id,
-    Customer? customer,
-    String? deviceType,
-    String? brand,
-    String? model,
-    String? serialNumber,
-    String? issueDescription,
-    RepairStatus? status,
-    DateTime? createdAt,
-    DateTime? completedAt,
-    User? assignedTechnician,
-    double? estimatedCost,
-    double? finalCost,
-    double? initialInspectionCost,
-    List<String>? images,
-    String? notes,
-    bool? hasWarranty,
-    DateTime? warrantyExpiration,
-    List<Map<String, dynamic>>? accessories,
-  }) {
+  factory RepairOrder.fromJson(Map<String, dynamic> json) {
+    List<RepairOrderItem> itemsList = [];
+    if (json['items'] != null) {
+      itemsList = (json['items'] as List)
+          .map((item) => RepairOrderItem.fromJson(item))
+          .toList();
+    }
+
     return RepairOrder(
-      id: id ?? this.id,
-      customer: customer ?? this.customer,
-      deviceType: deviceType ?? this.deviceType,
-      brand: brand ?? this.brand,
-      model: model ?? this.model,
-      serialNumber: serialNumber ?? this.serialNumber,
-      issueDescription: issueDescription ?? this.issueDescription,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      completedAt: completedAt ?? this.completedAt,
-      assignedTechnician: assignedTechnician ?? this.assignedTechnician,
-      estimatedCost: estimatedCost ?? this.estimatedCost,
-      finalCost: finalCost ?? this.finalCost,
-      initialInspectionCost: initialInspectionCost ?? this.initialInspectionCost,
-      images: images ?? this.images,
-      notes: notes ?? this.notes,
-      hasWarranty: hasWarranty ?? this.hasWarranty,
-      warrantyExpiration: warrantyExpiration ?? this.warrantyExpiration,
-      accessories: accessories ?? this.accessories, issue: '',
+      id: json['id'],
+      customerId: json['customerId'],
+      technicianId: json['technicianId'],
+      status: json['status'],
+      description: json['description'],
+      notes: json['notes'],
+      initialReviewCost: json['initialReviewCost']?.toDouble() ?? 0.0,
+      totalCost: json['totalCost']?.toDouble() ?? 0.0,
+      startDate: DateTime.parse(json['startDate']),
+      endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+      items: itemsList,
+      customer: json['customer'] != null ? Customer.fromJson(json['customer']) : null,
+      technician: json['technician'] != null ? User.fromJson(json['technician']) : null,
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'customer': customer.toMap(),
-      'deviceType': deviceType,
-      'brand': brand,
-      'model': model,
-      'serialNumber': serialNumber,
-      'issueDescription': issueDescription,
-      'status': status.toString().split('.').last,
-      'createdAt': createdAt.millisecondsSinceEpoch,
-      'completedAt': completedAt?.millisecondsSinceEpoch,
-      'assignedTechnician': assignedTechnician?.toMap(),
-      'estimatedCost': estimatedCost,
-      'finalCost': finalCost,
-      'initialInspectionCost': initialInspectionCost,
-      'images': images,
+      'customerId': customerId,
+      'technicianId': technicianId,
+      'status': status,
+      'description': description,
       'notes': notes,
-      'hasWarranty': hasWarranty,
-      'warrantyExpiration': warrantyExpiration?.millisecondsSinceEpoch,
-      'accessories': accessories,
+      'initialReviewCost': initialReviewCost,
+      'totalCost': totalCost,
+      'startDate': startDate.toIso8601String(),
+      'endDate': endDate?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'items': items.map((item) => item.toJson()).toList(),
     };
   }
+}
 
-  factory RepairOrder.fromMap(Map<String, dynamic> map) {
-    return RepairOrder(
-      id: map['id']?.toInt() ?? 0,
-      customer: Customer.fromMap(map['customer']),
-      deviceType: map['deviceType'] ?? '',
-      brand: map['brand'] ?? '',
-      model: map['model'] ?? '',
-      serialNumber: map['serialNumber'] ?? '',
-      issueDescription: map['issueDescription'] ?? '',
-      status: RepairStatus.values.firstWhere(
-        (e) => e.toString().split('.').last == map['status'],
-        orElse: () => RepairStatus.pending,
-      ),
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
-      completedAt: map['completedAt'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['completedAt'])
-          : null,
-      assignedTechnician: map['assignedTechnician'] != null
-          ? User.fromMap(map['assignedTechnician'])
-          : null,
-      estimatedCost: map['estimatedCost'],
-      finalCost: map['finalCost'],
-      initialInspectionCost: map['initialInspectionCost'],
-      images: map['images'] != null ? List<String>.from(map['images']) : null,
-      notes: map['notes'],
-      hasWarranty: map['hasWarranty'] ?? false,
-      warrantyExpiration: map['warrantyExpiration'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['warrantyExpiration'])
-          : null,
-      accessories: map['accessories'] != null ? List<Map<String, dynamic>>.from(map['accessories']) : null, issue: '',
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory RepairOrder.fromJson(String source) =>
-      RepairOrder.fromMap(json.decode(source));
-
-  @override
-  String toString() {
-    return 'RepairOrder(id: $id, customer: $customer, deviceType: $deviceType, brand: $brand, model: $model, serialNumber: $serialNumber, issueDescription: $issueDescription, status: $status, createdAt: $createdAt, completedAt: $completedAt, assignedTechnician: $assignedTechnician, estimatedCost: $estimatedCost, finalCost: $finalCost, initialInspectionCost: $initialInspectionCost, images: $images, notes: $notes, hasWarranty: $hasWarranty, warrantyExpiration: $warrantyExpiration, accessories: $accessories)';
-  }
+// Status enum to match Prisma schema
+class RepairOrderStatus {
+  static const String RECEIVED = 'RECEIVED';
+  static const String DIAGNOSED = 'DIAGNOSED';
+  static const String IN_PROGRESS = 'IN_PROGRESS';
+  static const String WAITING_FOR_PARTS = 'WAITING_FOR_PARTS';
+  static const String COMPLETED = 'COMPLETED';
+  static const String DELIVERED = 'DELIVERED';
+  static const String CANCELLED = 'CANCELLED';
 }

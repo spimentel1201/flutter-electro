@@ -1,171 +1,154 @@
 import 'dart:convert';
 import 'package:electro_workshop/models/repair_order.dart';
 import 'package:electro_workshop/models/user.dart';
+import 'package:electro_workshop/models/customer.dart';
 
 class QuoteItem {
-  final int id;
+  final String id;
+  final String quoteId;
   final String description;
   final double price;
   final int quantity;
   final bool isLabor;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   QuoteItem({
     required this.id,
+    required this.quoteId,
     required this.description,
     required this.price,
     required this.quantity,
     this.isLabor = false,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
   double get total => price * quantity;
 
   QuoteItem copyWith({
-    int? id,
+    String? id,
+    String? quoteId,
     String? description,
     double? price,
     int? quantity,
     bool? isLabor,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return QuoteItem(
       id: id ?? this.id,
+      quoteId: quoteId ?? this.quoteId,
       description: description ?? this.description,
       price: price ?? this.price,
       quantity: quantity ?? this.quantity,
       isLabor: isLabor ?? this.isLabor,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'quoteId': quoteId,
       'description': description,
       'price': price,
       'quantity': quantity,
       'isLabor': isLabor,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
-  factory QuoteItem.fromMap(Map<String, dynamic> map) {
+  factory QuoteItem.fromJson(Map<String, dynamic> json) {
     return QuoteItem(
-      id: map['id']?.toInt() ?? 0,
-      description: map['description'] ?? '',
-      price: map['price']?.toDouble() ?? 0.0,
-      quantity: map['quantity']?.toInt() ?? 1,
-      isLabor: map['isLabor'] ?? false,
+      id: json['id'],
+      quoteId: json['quoteId'],
+      description: json['description'] ?? '',
+      price: json['price']?.toDouble() ?? 0.0,
+      quantity: json['quantity']?.toInt() ?? 1,
+      isLabor: json['isLabor'] ?? false,
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
     );
   }
-}
-
-enum QuoteStatus {
-  draft,
-  pending,
-  approved,
-  rejected,
-  expired
 }
 
 class Quote {
-  final int id;
-  final RepairOrder repairOrder;
-  final List<QuoteItem> items;
-  final QuoteStatus status;
+  final String id;
+  final String repairOrderId;
+  final String customerId;
+  final String technicianId;
+  final String status;
+  final double totalAmount;
   final DateTime createdAt;
-  final DateTime validUntil;
-  final User createdBy;
-  final String? notes;
-  final double? discount;
-  final double? tax;
+  final DateTime updatedAt;
+  final List<QuoteItem> items;
+  
+  // Optional references to related objects
+  final RepairOrder? repairOrder;
+  final Customer? customer;
+  final User? technician;
 
   Quote({
     required this.id,
-    required this.repairOrder,
-    required this.items,
+    required this.repairOrderId,
+    required this.customerId,
+    required this.technicianId,
     required this.status,
+    required this.totalAmount,
     required this.createdAt,
-    required this.validUntil,
-    required this.createdBy,
-    this.notes,
-    this.discount,
-    this.tax,
+    required this.updatedAt,
+    this.items = const [],
+    this.repairOrder,
+    this.customer,
+    this.technician,
   });
 
-  // Calculate subtotal (sum of all items)
-  double get subtotal => items.fold(0, (sum, item) => sum + item.total);
+  factory Quote.fromJson(Map<String, dynamic> json) {
+    List<QuoteItem> itemsList = [];
+    if (json['items'] != null) {
+      itemsList = (json['items'] as List)
+          .map((item) => QuoteItem.fromJson(item))
+          .toList();
+    }
 
-  // Calculate discount amount
-  double get discountAmount => discount != null ? subtotal * (discount! / 100) : 0;
-
-  // Calculate tax amount
-  double get taxAmount => tax != null ? (subtotal - discountAmount) * (tax! / 100) : 0;
-
-  // Calculate total
-  double get total => subtotal - discountAmount + taxAmount;
-
-  Quote copyWith({
-    int? id,
-    RepairOrder? repairOrder,
-    List<QuoteItem>? items,
-    QuoteStatus? status,
-    DateTime? createdAt,
-    DateTime? validUntil,
-    User? createdBy,
-    String? notes,
-    double? discount,
-    double? tax,
-  }) {
     return Quote(
-      id: id ?? this.id,
-      repairOrder: repairOrder ?? this.repairOrder,
-      items: items ?? this.items,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      validUntil: validUntil ?? this.validUntil,
-      createdBy: createdBy ?? this.createdBy,
-      notes: notes ?? this.notes,
-      discount: discount ?? this.discount,
-      tax: tax ?? this.tax,
+      id: json['id'],
+      repairOrderId: json['repairOrderId'],
+      customerId: json['customerId'],
+      technicianId: json['technicianId'],
+      status: json['status'],
+      totalAmount: json['totalAmount'].toDouble(),
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+      items: itemsList,
+      repairOrder: json['repairOrder'] != null ? RepairOrder.fromJson(json['repairOrder']) : null,
+      customer: json['customer'] != null ? Customer.fromJson(json['customer']) : null,
+      technician: json['technician'] != null ? User.fromJson(json['technician']) : null,
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'repairOrder': repairOrder.toMap(),
-      'items': items.map((x) => x.toMap()).toList(),
-      'status': status.toString().split('.').last,
-      'createdAt': createdAt.millisecondsSinceEpoch,
-      'validUntil': validUntil.millisecondsSinceEpoch,
-      'createdBy': createdBy.toMap(),
-      'notes': notes,
-      'discount': discount,
-      'tax': tax,
+      'repairOrderId': repairOrderId,
+      'customerId': customerId,
+      'technicianId': technicianId,
+      'status': status,
+      'totalAmount': totalAmount,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'items': items.map((item) => item.toJson()).toList(),
     };
   }
+}
 
-  factory Quote.fromMap(Map<String, dynamic> map) {
-    return Quote(
-      id: map['id']?.toInt() ?? 0,
-      repairOrder: RepairOrder.fromMap(map['repairOrder']),
-      items: List<QuoteItem>.from(map['items']?.map((x) => QuoteItem.fromMap(x))),
-      status: QuoteStatus.values.firstWhere(
-        (e) => e.toString().split('.').last == map['status'],
-        orElse: () => QuoteStatus.draft,
-      ),
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
-      validUntil: DateTime.fromMillisecondsSinceEpoch(map['validUntil']),
-      createdBy: User.fromMap(map['createdBy']),
-      notes: map['notes'],
-      discount: map['discount'],
-      tax: map['tax'],
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory Quote.fromJson(String source) => Quote.fromMap(json.decode(source));
-
-  @override
-  String toString() {
-    return 'Quote(id: $id, repairOrder: $repairOrder, items: $items, status: $status, createdAt: $createdAt, validUntil: $validUntil, createdBy: $createdBy, notes: $notes, discount: $discount, tax: $tax)';
-  }
+// Status enum to match Prisma schema
+class QuoteStatus {
+  static const String PENDING = 'PENDING';
+  static const String APPROVED = 'APPROVED';
+  static const String REJECTED = 'REJECTED';
+  static const String EXPIRED = 'EXPIRED';
 }

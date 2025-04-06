@@ -1,79 +1,67 @@
 import 'dart:convert';
 
-enum UserRole { admin, technician }
-
 class User {
-  final int id;
-  final String name;
+  final String id;
   final String email;
+  final String password;
+  final String firstName;
+  final String lastName;
+  final String profileImage;
   final String phone;
-  final UserRole role;
-  final String? profileImage;
+  final String role;
   final bool isActive;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   User({
     required this.id,
-    required this.name,
     required this.email,
+    required this.password,
+    required this.firstName,
+    required this.lastName,
+    required this.profileImage,
     required this.phone,
     required this.role,
-    this.profileImage,
     this.isActive = true,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
-  User copyWith({
-    int? id,
-    String? name,
-    String? email,
-    String? phone,
-    UserRole? role,
-    String? profileImage,
-    bool? isActive,
-  }) {
+  factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      email: email ?? this.email,
-      phone: phone ?? this.phone,
-      role: role ?? this.role,
-      profileImage: profileImage ?? this.profileImage,
-      isActive: isActive ?? this.isActive,
+      id: json['id'],
+      email: json['email'],
+      password: json['password'],
+      firstName: json['firstName'],
+      lastName: json['lastName'],
+      profileImage: json['profileImage'],
+      phone: json['phone'],
+      role: json['role'],
+      isActive: json['isActive'] ?? true,
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'name': name,
       'email': email,
-      'phone': phone,
-      'role': role.toString().split('.').last,
+      'password': password,
+      'firstName': firstName,
+      'lastName': lastName,
       'profileImage': profileImage,
+      'phone': phone,
+      'role': role,
       'isActive': isActive,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
+}
 
-  factory User.fromMap(Map<String, dynamic> map) {
-    return User(
-      id: map['id']?.toInt() ?? 0,
-      name: map['name'] ?? '',
-      email: map['email'] ?? '',
-      phone: map['phone'] ?? '',
-      role: UserRole.values.firstWhere(
-        (e) => e.toString().split('.').last == map['role'],
-        orElse: () => UserRole.technician,
-      ),
-      profileImage: map['profileImage'],
-      isActive: map['isActive'] ?? true,
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory User.fromJson(String source) => User.fromMap(json.decode(source));
-
-  @override
-  String toString() {
-    return 'User(id: $id, name: $name, email: $email, phone: $phone, role: $role, profileImage: $profileImage, isActive: $isActive)';
-  }
+// Role enum to match Prisma schema
+class UserRole {
+  static const String ADMIN = 'ADMIN';
+  static const String TECHNICIAN = 'TECHNICIAN';
 }

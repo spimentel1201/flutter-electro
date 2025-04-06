@@ -1,80 +1,61 @@
 import 'dart:convert';
 
 class Product {
-  final int id;
+  final String id;
   final String name;
-  final String description;
-  final String category;
+  final String? description;
   final double price;
   final double cost;
   final int stock;
+  final String category;
   final bool isActive;
+  final String? imageUrl;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   Product({
     required this.id,
     required this.name,
-    required this.description,
-    required this.category,
+    this.description,
     required this.price,
     required this.cost,
-    required this.stock,
+    this.stock = 0,
+    required this.category,
     this.isActive = true,
+    this.imageUrl,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
-  Product copyWith({
-    int? id,
-    String? name,
-    String? description,
-    String? category,
-    double? price,
-    double? cost,
-    int? stock,
-    bool? isActive,
-  }) {
+  factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      category: category ?? this.category,
-      price: price ?? this.price,
-      cost: cost ?? this.cost,
-      stock: stock ?? this.stock,
-      isActive: isActive ?? this.isActive,
+      id: json['id'],
+      name: json['name'],
+      description: json['description'],
+      price: json['price'].toDouble(),
+      cost: json['cost'].toDouble(),
+      stock: json['stock'] ?? 0,
+      category: json['category'],
+      isActive: json['isActive'] ?? true,
+      imageUrl: json['imageUrl'],
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'description': description,
-      'category': category,
       'price': price,
       'cost': cost,
       'stock': stock,
+      'category': category,
       'isActive': isActive,
+      'imageUrl': imageUrl,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
-  }
-
-  factory Product.fromMap(Map<String, dynamic> map) {
-    return Product(
-      id: map['id']?.toInt() ?? 0,
-      name: map['name'] ?? '',
-      description: map['description'] ?? '',
-      category: map['category'] ?? '',
-      price: map['price']?.toDouble() ?? 0.0,
-      cost: map['cost']?.toDouble() ?? 0.0,
-      stock: map['stock']?.toInt() ?? 0,
-      isActive: map['isActive'] ?? true,
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory Product.fromJson(String source) => Product.fromMap(json.decode(source));
-
-  @override
-  String toString() {
-    return 'Product(id: $id, name: $name, description: $description, category: $category, price: $price, cost: $cost, stock: $stock, isActive: $isActive)';
   }
 }

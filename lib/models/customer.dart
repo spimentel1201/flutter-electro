@@ -1,57 +1,43 @@
 import 'dart:convert';
 
 class Customer {
-  final int id;
+  final String id;
   final String name;
-  final String email;
+  final String? email;
   final String phone;
-  final String? documentType;
-  final String? documentNumber;
+  final String documentType;
+  final String documentNumber;
   final String? address;
-  final String? notes;
   final DateTime createdAt;
-  final bool isActive;
+  final DateTime updatedAt;
 
   Customer({
     required this.id,
     required this.name,
-    required this.email,
+    this.email,
     required this.phone,
-    this.documentType,
-    this.documentNumber,
+    required this.documentType,
+    required this.documentNumber,
     this.address,
-    this.notes,
     required this.createdAt,
-    this.isActive = true,
+    required this.updatedAt,
   });
 
-  Customer copyWith({
-    int? id,
-    String? name,
-    String? email,
-    String? phone,
-    String? documentType,
-    String? documentNumber,
-    String? address,
-    String? notes,
-    DateTime? createdAt,
-    bool? isActive,
-  }) {
+  factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      email: email ?? this.email,
-      phone: phone ?? this.phone,
-      documentType: documentType ?? this.documentType,
-      documentNumber: documentNumber ?? this.documentNumber,
-      address: address ?? this.address,
-      notes: notes ?? this.notes,
-      createdAt: createdAt ?? this.createdAt,
-      isActive: isActive ?? this.isActive,
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+      phone: json['phone'],
+      documentType: json['documentType'],
+      documentNumber: json['documentNumber'],
+      address: json['address'],
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
@@ -60,33 +46,8 @@ class Customer {
       'documentType': documentType,
       'documentNumber': documentNumber,
       'address': address,
-      'notes': notes,
-      'createdAt': createdAt.millisecondsSinceEpoch,
-      'isActive': isActive,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
-  }
-
-  factory Customer.fromMap(Map<String, dynamic> map) {
-    return Customer(
-      id: map['id']?.toInt() ?? 0,
-      name: map['name'] ?? '',
-      email: map['email'] ?? '',
-      phone: map['phone'] ?? '',
-      documentType: map['documentType'],
-      documentNumber: map['documentNumber'],
-      address: map['address'],
-      notes: map['notes'],
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
-      isActive: map['isActive'] ?? true,
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory Customer.fromJson(String source) => Customer.fromMap(json.decode(source));
-
-  @override
-  String toString() {
-    return 'Customer(id: $id, name: $name, email: $email, phone: $phone, documentType: $documentType, documentNumber: $documentNumber, address: $address, notes: $notes, createdAt: $createdAt, isActive: $isActive)';
   }
 }

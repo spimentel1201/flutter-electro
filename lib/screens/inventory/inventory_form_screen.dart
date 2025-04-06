@@ -8,7 +8,7 @@ import 'dart:io';
 class InventoryFormScreen extends StatefulWidget {
   final InventoryItem? item;
 
-  const InventoryFormScreen({Key? key, this.item}) : super(key: key);
+  const InventoryFormScreen({super.key, this.item});
 
   @override
   _InventoryFormScreenState createState() => _InventoryFormScreenState();
