@@ -3,6 +3,8 @@ import 'package:get_it/get_it.dart';
 import 'package:electro_workshop/services/auth_service.dart';
 import 'package:electro_workshop/models/user.dart';
 import 'package:electro_workshop/screens/clients/client_list_screen.dart';
+import 'package:electro_workshop/screens/inventory/inventory_list_screen.dart';
+import 'package:electro_workshop/screens/quotes/quote_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -81,35 +83,61 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: 'Órdenes de Reparación',
                       icon: Icons.build,
                       onTap: () {
-                        // Navigate to repair orders screen
+                        // Por ahora mostramos un mensaje ya que la pantalla no está implementada
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Módulo de Órdenes de Reparación en desarrollo'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
                       },
                     ),
                     _buildModuleButton(
                       title: 'Presupuestos',
                       icon: Icons.description,
                       onTap: () {
-                        // Navigate to quotes screen
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const QuoteListScreen(),
+                          ),
+                        );
                       },
                     ),
                     _buildModuleButton(
                       title: 'Ventas',
                       icon: Icons.point_of_sale,
                       onTap: () {
-                        // Navigate to sales screen
+                        // Por ahora mostramos un mensaje ya que la pantalla no está implementada
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Módulo de Ventas en desarrollo'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
                       },
                     ),
                     _buildModuleButton(
                       title: 'Inventario',
                       icon: Icons.inventory,
                       onTap: () {
-                        // Navigate to inventory screen
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const InventoryListScreen(),
+                          ),
+                        );
                       },
                     ),
                     _buildModuleButton(
                       title: 'Usuarios',
                       icon: Icons.person,
                       onTap: () {
-                        // Navigate to users screen
+                        // Por ahora mostramos un mensaje ya que la pantalla no está implementada
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Módulo de Usuarios en desarrollo'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
                       },
                     ),
                   ],

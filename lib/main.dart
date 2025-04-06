@@ -1,3 +1,4 @@
+import 'package:electro_workshop/services/customer_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:get_it/get_it.dart';
@@ -5,6 +6,8 @@ import 'package:electro_workshop/services/api_service.dart';
 import 'package:electro_workshop/services/auth_service.dart';
 import 'package:electro_workshop/services/inventory_service.dart';
 import 'package:electro_workshop/services/product_service.dart';
+import 'package:electro_workshop/services/quote_service.dart';
+import 'package:electro_workshop/services/repair_service.dart';
 import 'package:electro_workshop/screens/login_screen.dart';
 import 'package:electro_workshop/screens/home_screen.dart';
 
@@ -27,6 +30,18 @@ void setupServiceLocator() {
   
   getIt.registerLazySingleton<ProductService>(
     () => ProductService(apiService: getIt<ApiService>()),
+  );
+  
+  getIt.registerLazySingleton<CustomerService>(
+    () => CustomerService(apiService: getIt<ApiService>()),
+  );
+  
+  getIt.registerLazySingleton<QuoteService>(
+    () => QuoteService(apiService: getIt<ApiService>()),
+  );
+  
+  getIt.registerLazySingleton<RepairService>(
+    () => RepairService(apiService: getIt<ApiService>()),
   );
 }
 

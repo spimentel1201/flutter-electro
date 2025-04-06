@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:electro_workshop/models/customer.dart';
 import 'package:electro_workshop/services/customer_service.dart';
+import 'package:electro_workshop/screens/clients/client_form_screen.dart';
+import 'package:electro_workshop/screens/clients/client_detail_screen.dart';
 
 class ClientListScreen extends StatefulWidget {
   const ClientListScreen({super.key});
@@ -202,45 +204,6 @@ class _ClientListScreenState extends State<ClientListScreen> {
           ),
         );
       },
-    );
-  }
-}
-
-// Placeholder for ClientFormScreen
-class ClientFormScreen extends StatelessWidget {
-  final bool isEditing;
-  final Customer? customer;
-
-  const ClientFormScreen({super.key, required this.isEditing, this.customer});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Editar Cliente' : 'Nuevo Cliente'),
-      ),
-      body: const Center(
-        child: Text('Formulario de cliente'),
-      ),
-    );
-  }
-}
-
-// Placeholder for ClientDetailScreen
-class ClientDetailScreen extends StatelessWidget {
-  final int customerId;
-
-  const ClientDetailScreen({super.key, required this.customerId});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detalle de Cliente'),
-      ),
-      body: const Center(
-        child: Text('Detalle de cliente'),
-      ),
     );
   }
 }
