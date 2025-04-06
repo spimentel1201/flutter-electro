@@ -25,36 +25,31 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // Función de login modificada para redirigir directamente sin validación
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    // Comentamos la validación del formulario temporalmente
+    // if (!_formKey.currentState!.validate()) {
+    //   return;
+    // }
 
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    try {
-      await _authService.login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
-      
-      if (!mounted) return;
-      
-      // Navigate to home screen after successful login
-      Navigator.of(context).pushReplacementNamed('/home');
-    } catch (e) {
+    // Simulamos un breve retraso para mostrar el indicador de carga
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    if (!mounted) return;
+    
+    // Navegamos directamente a la pantalla de inicio sin validar credenciales
+    Navigator.of(context).pushReplacementNamed('/home');
+    
+    // Restablecemos el estado de carga
+    if (mounted) {
       setState(() {
-        _errorMessage = 'Login failed: ${e.toString()}';
+        _isLoading = false;
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
