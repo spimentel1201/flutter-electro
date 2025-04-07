@@ -11,7 +11,7 @@ class CustomerService {
     try {
       final response = await _apiService.get('customers');
       return (response as List)
-          .map((customer) => Customer.fromMap(customer))
+          .map((customer) => Customer.fromJson(customer))
           .toList();
     } catch (e) {
       throw Exception('Failed to load customers: ${e.toString()}');
@@ -19,10 +19,10 @@ class CustomerService {
   }
 
   // Get customer by ID
-  Future<Customer> getCustomerById(int id) async {
+  Future<Customer> getCustomerById(String id) async {
     try {
       final response = await _apiService.get('customers/$id');
-      return Customer.fromMap(response);
+      return Customer.fromJson(response);
     } catch (e) {
       throw Exception('Failed to load customer: ${e.toString()}');
     }
@@ -33,7 +33,7 @@ class CustomerService {
     try {
       final response = await _apiService.get('customers/search?q=$query');
       return (response as List)
-          .map((customer) => Customer.fromMap(customer))
+          .map((customer) => Customer.fromJson(customer))
           .toList();
     } catch (e) {
       throw Exception('Failed to search customers: ${e.toString()}');
@@ -43,8 +43,8 @@ class CustomerService {
   // Create new customer
   Future<Customer> createCustomer(Customer customer) async {
     try {
-      final response = await _apiService.post('customers', data: customer.toMap());
-      return Customer.fromMap(response);
+      final response = await _apiService.post('customers', data: customer.toJson());
+      return Customer.fromJson(response);
     } catch (e) {
       throw Exception('Failed to create customer: ${e.toString()}');
     }
@@ -53,15 +53,15 @@ class CustomerService {
   // Update customer
   Future<Customer> updateCustomer(Customer customer) async {
     try {
-      final response = await _apiService.put('customers/${customer.id}', data: customer.toMap());
-      return Customer.fromMap(response);
+      final response = await _apiService.put('customers/${customer.id}', data: customer.toJson());
+      return Customer.fromJson(response);
     } catch (e) {
       throw Exception('Failed to update customer: ${e.toString()}');
     }
   }
 
   // Delete customer
-  Future<void> deleteCustomer(int id) async {
+  Future<void> deleteCustomer(String id) async {
     try {
       await _apiService.delete('customers/$id');
     } catch (e) {
@@ -70,7 +70,7 @@ class CustomerService {
   }
 
   // Get customer repair history
-  Future<List<Map<String, dynamic>>> getCustomerRepairHistory(int customerId) async {
+  Future<List<Map<String, dynamic>>> getCustomerRepairHistory(String customerId) async {
     try {
       final response = await _apiService.get('customers/$customerId/repairs');
       return List<Map<String, dynamic>>.from(response);
@@ -80,12 +80,12 @@ class CustomerService {
   }
 
   // Add customer notes
-  Future<Customer> addCustomerNotes(int customerId, String notes) async {
+  Future<Customer> addCustomerNotes(String customerId, String notes) async {
     try {
       final response = await _apiService.put('customers/$customerId/notes', data: {
         'notes': notes,
       });
-      return Customer.fromMap(response);
+      return Customer.fromJson(response);
     } catch (e) {
       throw Exception('Failed to add customer notes: ${e.toString()}');
     }

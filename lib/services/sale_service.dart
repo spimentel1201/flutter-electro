@@ -19,7 +19,7 @@ class SaleService {
     try {
       final response = await _apiService.get('sales');
       return (response as List)
-          .map((item) => Sale.fromMap(item))
+          .map((item) => Sale.fromJson(item as Map<String, dynamic>))
           .toList();
     } catch (e) {
       throw Exception('Failed to load sales: ${e.toString()}');
@@ -30,10 +30,10 @@ class SaleService {
   Future<List<Sale>> getSalesByDateRange(DateTime startDate, DateTime endDate) async {
     try {
       final response = await _apiService.get(
-        'sales/date-range?start=${startDate.millisecondsSinceEpoch}&end=${endDate.millisecondsSinceEpoch}'
+        'sales/date-range?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}'
       );
       return (response as List)
-          .map((item) => Sale.fromMap(item))
+          .map((item) => Sale.fromJson(item as Map<String, dynamic>))
           .toList();
     } catch (e) {
       throw Exception('Failed to load sales by date range: ${e.toString()}');
@@ -41,11 +41,11 @@ class SaleService {
   }
 
   // Get sales by customer
-  Future<List<Sale>> getSalesByCustomer(int customerId) async {
+  Future<List<Sale>> getSalesByCustomer(String customerId) async {
     try {
       final response = await _apiService.get('sales/customer/$customerId');
       return (response as List)
-          .map((item) => Sale.fromMap(item))
+          .map((item) => Sale.fromJson(item as Map<String, dynamic>))
           .toList();
     } catch (e) {
       throw Exception('Failed to load sales by customer: ${e.toString()}');
@@ -53,10 +53,10 @@ class SaleService {
   }
 
   // Get sale by ID
-  Future<Sale> getSaleById(int id) async {
+  Future<Sale> getSaleById(String id) async {
     try {
       final response = await _apiService.get('sales/$id');
-      return Sale.fromMap(response);
+      return Sale.fromJson(response);
     } catch (e) {
       throw Exception('Failed to load sale: ${e.toString()}');
     }
@@ -67,14 +67,15 @@ class SaleService {
     try {
       // Update product stock quantities
       for (var item in sale.items) {
+        final currentStock = item.product!.stock ?? 0;
         await _productService.updateProductStock(
-          item.product.id, 
-          item.product.stock - item.quantity
+          item.product!.id,
+          currentStock - item.quantity
         );
       }
       
-      final response = await _apiService.post('sales', data: sale.toMap());
-      return Sale.fromMap(response);
+      final response = await _apiService.post('sales', data: sale.toJson());
+      return Sale.fromJson(response as Map<String, dynamic>);
     } catch (e) {
       throw Exception('Failed to create sale: ${e.toString()}');
     }
@@ -83,29 +84,30 @@ class SaleService {
   // Update sale
   Future<Sale> updateSale(Sale sale) async {
     try {
-      final response = await _apiService.put('sales/${sale.id}', data: sale.toMap());
-      return Sale.fromMap(response);
+      final response = await _apiService.put('sales/${sale.id}', data: sale.toJson());
+      return Sale.fromJson(response);
     } catch (e) {
       throw Exception('Failed to update sale: ${e.toString()}');
     }
   }
 
   // Cancel sale
-  Future<Sale> cancelSale(int id) async {
+  Future<Sale> cancelSale(String id) async {
     try {
       // Get the sale first
       final sale = await getSaleById(id);
       
       // Restore product stock quantities
       for (var item in sale.items) {
+        final currentStock = item.product!.stock ?? 0;
         await _productService.updateProductStock(
-          item.product.id, 
-          item.product.stock + item.quantity
+          item.product!.id,
+          currentStock + item.quantity
         );
       }
       
       final response = await _apiService.put('sales/$id/cancel');
-      return Sale.fromMap(response);
+      return Sale.fromJson(response as Map<String, dynamic>);
     } catch (e) {
       throw Exception('Failed to cancel sale: ${e.toString()}');
     }
@@ -115,9 +117,9 @@ class SaleService {
   Future<Map<String, dynamic>> getSalesStatistics(DateTime startDate, DateTime endDate) async {
     try {
       final response = await _apiService.get(
-        'sales/statistics?start=${startDate.millisecondsSinceEpoch}&end=${endDate.millisecondsSinceEpoch}'
+        'sales/statistics?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}'
       );
-      return response;
+      return response as Map<String, dynamic>;
     } catch (e) {
       throw Exception('Failed to load sales statistics: ${e.toString()}');
     }
@@ -127,16 +129,16 @@ class SaleService {
   Future<List<Map<String, dynamic>>> getTopSellingProducts(DateTime startDate, DateTime endDate, {int limit = 10}) async {
     try {
       final response = await _apiService.get(
-        'sales/top-products?start=${startDate.millisecondsSinceEpoch}&end=${endDate.millisecondsSinceEpoch}&limit=$limit'
+        'sales/top-products?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}&limit=$limit'
       );
-      return List<Map<String, dynamic>>.from(response);
+      return (response as List).cast<Map<String, dynamic>>();
     } catch (e) {
       throw Exception('Failed to load top selling products: ${e.toString()}');
     }
   }
 
   // Generate invoice
-  Future<String> generateInvoice(int saleId) async {
+  Future<String> generateInvoice(String saleId) async {
     try {
       final response = await _apiService.get('sales/$saleId/invoice');
       return response['invoiceUrl'];

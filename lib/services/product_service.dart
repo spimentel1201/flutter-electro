@@ -11,7 +11,7 @@ class ProductService {
     try {
       final response = await _apiService.get('products');
       return (response as List)
-          .map((item) => Product.fromMap(item))
+          .map((item) => Product.fromJson(item))
           .toList();
     } catch (e) {
       throw Exception('Failed to load products: ${e.toString()}');
@@ -23,7 +23,7 @@ class ProductService {
     try {
       final response = await _apiService.get('products/category/$category');
       return (response as List)
-          .map((item) => Product.fromMap(item))
+          .map((item) => Product.fromJson(item))
           .toList();
     } catch (e) {
       throw Exception('Failed to load products by category: ${e.toString()}');
@@ -31,10 +31,10 @@ class ProductService {
   }
 
   // Get product by ID
-  Future<Product> getProductById(int id) async {
+  Future<Product> getProductById(String id) async {
     try {
       final response = await _apiService.get('products/$id');
-      return Product.fromMap(response);
+      return Product.fromJson(response);
     } catch (e) {
       throw Exception('Failed to load product: ${e.toString()}');
     }
@@ -43,8 +43,8 @@ class ProductService {
   // Create new product
   Future<Product> createProduct(Product product) async {
     try {
-      final response = await _apiService.post('products', data: product.toMap());
-      return Product.fromMap(response);
+      final response = await _apiService.post('products', data: product.toJson());
+      return Product.fromJson(response);
     } catch (e) {
       throw Exception('Failed to create product: ${e.toString()}');
     }
@@ -53,15 +53,15 @@ class ProductService {
   // Update product
   Future<Product> updateProduct(Product product) async {
     try {
-      final response = await _apiService.put('products/${product.id}', data: product.toMap());
-      return Product.fromMap(response);
+      final response = await _apiService.put('products/${product.id}', data: product.toJson());
+      return Product.fromJson(response);
     } catch (e) {
       throw Exception('Failed to update product: ${e.toString()}');
     }
   }
 
   // Delete product
-  Future<void> deleteProduct(int id) async {
+  Future<void> deleteProduct(String id) async {
     try {
       await _apiService.delete('products/$id');
     } catch (e) {
@@ -70,12 +70,12 @@ class ProductService {
   }
 
   // Update product stock
-  Future<Product> updateProductStock(int id, int stock) async {
+  Future<Product> updateProductStock(String id, int stock) async {
     try {
       final response = await _apiService.put('products/$id/stock', data: {
         'stock': stock,
       });
-      return Product.fromMap(response);
+      return Product.fromJson(response);
     } catch (e) {
       throw Exception('Failed to update product stock: ${e.toString()}');
     }
@@ -86,7 +86,7 @@ class ProductService {
     try {
       final response = await _apiService.get('products/search?q=$query');
       return (response as List)
-          .map((item) => Product.fromMap(item))
+          .map((item) => Product.fromJson(item))
           .toList();
     } catch (e) {
       throw Exception('Failed to search products: ${e.toString()}');
@@ -98,7 +98,7 @@ class ProductService {
     try {
       final response = await _apiService.get('products/active');
       return (response as List)
-          .map((item) => Product.fromMap(item))
+          .map((item) => Product.fromJson(item))
           .toList();
     } catch (e) {
       throw Exception('Failed to load active products: ${e.toString()}');

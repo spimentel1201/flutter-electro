@@ -11,7 +11,7 @@ class RepairService {
     try {
       final response = await _apiService.get('repairs');
       return (response as List)
-          .map((order) => RepairOrder.fromMap(order))
+          .map((order) => RepairOrder.fromJson(order as Map<String, dynamic>))
           .toList();
     } catch (e) {
       throw Exception('Failed to load repair orders: ${e.toString()}');
@@ -19,12 +19,11 @@ class RepairService {
   }
 
   // Get repair orders by status
-  Future<List<RepairOrder>> getRepairOrdersByStatus(RepairStatus status) async {
+  Future<List<RepairOrder>> getRepairOrdersByStatus(String status) async {
     try {
-      final statusStr = status.toString().split('.').last;
-      final response = await _apiService.get('repairs/status/$statusStr');
+      final response = await _apiService.get('repairs/status/$status');
       return (response as List)
-          .map((order) => RepairOrder.fromMap(order))
+          .map((order) => RepairOrder.fromJson(order as Map<String, dynamic>))
           .toList();
     } catch (e) {
       throw Exception('Failed to load repair orders by status: ${e.toString()}');
@@ -32,11 +31,11 @@ class RepairService {
   }
 
   // Get repair orders by technician
-  Future<List<RepairOrder>> getRepairOrdersByTechnician(int technicianId) async {
+  Future<List<RepairOrder>> getRepairOrdersByTechnician(String technicianId) async {
     try {
       final response = await _apiService.get('repairs/technician/$technicianId');
       return (response as List)
-          .map((order) => RepairOrder.fromMap(order))
+          .map((order) => RepairOrder.fromJson(order as Map<String, dynamic>))
           .toList();
     } catch (e) {
       throw Exception('Failed to load repair orders by technician: ${e.toString()}');
@@ -44,11 +43,11 @@ class RepairService {
   }
 
   // Get repair orders by customer
-  Future<List<RepairOrder>> getRepairOrdersByCustomer(int customerId) async {
+  Future<List<RepairOrder>> getRepairOrdersByCustomer(String customerId) async {
     try {
       final response = await _apiService.get('repairs/customer/$customerId');
       return (response as List)
-          .map((order) => RepairOrder.fromMap(order))
+          .map((order) => RepairOrder.fromJson(order as Map<String, dynamic>))
           .toList();
     } catch (e) {
       throw Exception('Failed to load repair orders by customer: ${e.toString()}');
@@ -56,10 +55,10 @@ class RepairService {
   }
 
   // Get repair order by ID
-  Future<RepairOrder> getRepairOrderById(int id) async {
+  Future<RepairOrder> getRepairOrderById(String id) async {
     try {
       final response = await _apiService.get('repairs/$id');
-      return RepairOrder.fromMap(response);
+      return RepairOrder.fromJson(response);
     } catch (e) {
       throw Exception('Failed to load repair order: ${e.toString()}');
     }
@@ -68,8 +67,8 @@ class RepairService {
   // Create new repair order
   Future<RepairOrder> createRepairOrder(RepairOrder order) async {
     try {
-      final response = await _apiService.post('repairs', data: order.toMap());
-      return RepairOrder.fromMap(response);
+      final response = await _apiService.post('repairs', data: order.toJson());
+      return RepairOrder.fromJson(response);
     } catch (e) {
       throw Exception('Failed to create repair order: ${e.toString()}');
     }
@@ -78,64 +77,63 @@ class RepairService {
   // Update repair order
   Future<RepairOrder> updateRepairOrder(RepairOrder order) async {
     try {
-      final response = await _apiService.put('repairs/${order.id}', data: order.toMap());
-      return RepairOrder.fromMap(response);
+      final response = await _apiService.put('repairs/${order.id}', data: order.toJson());
+      return RepairOrder.fromJson(response);
     } catch (e) {
       throw Exception('Failed to update repair order: ${e.toString()}');
     }
   }
 
   // Update repair order status
-  Future<RepairOrder> updateRepairOrderStatus(int id, RepairStatus status) async {
+  Future<RepairOrder> updateRepairOrderStatus(String id, String status) async {
     try {
-      final statusStr = status.toString().split('.').last;
       final response = await _apiService.put('repairs/$id/status', data: {
-        'status': statusStr,
+        'status': status,
       });
-      return RepairOrder.fromMap(response);
+      return RepairOrder.fromJson(response);
     } catch (e) {
       throw Exception('Failed to update repair order status: ${e.toString()}');
     }
   }
 
   // Assign technician to repair order
-  Future<RepairOrder> assignTechnician(int repairId, int technicianId) async {
+  Future<RepairOrder> assignTechnician(String repairId, String technicianId) async {
     try {
       final response = await _apiService.put('repairs/$repairId/assign', data: {
         'technician_id': technicianId,
       });
-      return RepairOrder.fromMap(response);
+      return RepairOrder.fromJson(response);
     } catch (e) {
       throw Exception('Failed to assign technician: ${e.toString()}');
     }
   }
 
   // Add repair notes
-  Future<RepairOrder> addRepairNotes(int repairId, String notes) async {
+  Future<RepairOrder> addRepairNotes(String repairId, String notes) async {
     try {
       final response = await _apiService.put('repairs/$repairId/notes', data: {
         'notes': notes,
       });
-      return RepairOrder.fromMap(response);
+      return RepairOrder.fromJson(response);
     } catch (e) {
       throw Exception('Failed to add repair notes: ${e.toString()}');
     }
   }
 
   // Complete repair order
-  Future<RepairOrder> completeRepairOrder(int repairId, double finalCost) async {
+  Future<RepairOrder> completeRepairOrder(String repairId, double finalCost) async {
     try {
       final response = await _apiService.put('repairs/$repairId/complete', data: {
         'final_cost': finalCost,
       });
-      return RepairOrder.fromMap(response);
+      return RepairOrder.fromJson(response);
     } catch (e) {
       throw Exception('Failed to complete repair order: ${e.toString()}');
     }
   }
 
   // Delete repair order
-  Future<void> deleteRepairOrder(int id) async {
+  Future<void> deleteRepairOrder(String id) async {
     try {
       await _apiService.delete('repairs/$id');
     } catch (e) {

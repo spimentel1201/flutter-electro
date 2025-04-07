@@ -6,66 +6,57 @@ import 'package:electro_workshop/screens/clients/client_form_screen.dart';
 import 'package:electro_workshop/screens/clients/client_detail_screen.dart';
 
 class ClientListScreen extends StatefulWidget {
-  const ClientListScreen({super.key});
+  const ClientListScreen({Key? key}) : super(key: key);
 
   @override
-  State<ClientListScreen> createState() => _ClientListScreenState();
+  _ClientListScreenState createState() => _ClientListScreenState();
 }
 
 class _ClientListScreenState extends State<ClientListScreen> {
-  final CustomerService _customerService = GetIt.instance<CustomerService>();
-  List<Customer> _customers = [];
-  List<Customer> _filteredCustomers = [];
+  final ClientService _clientService = ClientService();
+  List<Customer> _clients = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  String _selectedDocumentType = 'Todos';
-
-  final List<String> _documentTypes = ['Todos', 'DNI', 'RUC'];
-
+  
   @override
   void initState() {
     super.initState();
-    _loadCustomers();
+    _loadClients();
   }
 
-  Future<void> _loadCustomers() async {
+  Future<void> _loadClients() async {
     setState(() {
       _isLoading = true;
     });
-
+    
     try {
-      final customers = await _customerService.getAllCustomers();
+      final clients = await _clientService.getClients();
       setState(() {
-        _customers = customers;
-        _applyFilters();
+        _clients = clients;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      _showErrorSnackBar('Error al cargar los clientes: ${e.toString()}');
+      _showErrorSnackBar('Failed to load clients: ${e.toString()}');
     }
   }
 
-  void _applyFilters() {
-    setState(() {
-      _filteredCustomers = _customers.where((customer) {
-        // Apply search filter
-        final nameMatches = customer.name.toLowerCase().contains(_searchQuery.toLowerCase());
-        final emailMatches = customer.email.toLowerCase().contains(_searchQuery.toLowerCase());
-        final phoneMatches = customer.phone.contains(_searchQuery);
-        final documentMatches = customer.documentNumber?.contains(_searchQuery) ?? false;
-        
-        // Apply document type filter
-        final documentTypeMatches = _selectedDocumentType == 'Todos' ||
-            customer.documentType == _selectedDocumentType;
-        
-        return (nameMatches || emailMatches || phoneMatches || documentMatches) && documentTypeMatches;
-      }).toList();
-    });
+  List<Customer> get _filteredClients {
+    if (_searchQuery.isEmpty) {
+      return _clients;
+    }
+    
+    final query = _searchQuery.toLowerCase();
+    return _clients.where((client) {
+      return client.name.toLowerCase().contains(query) ||
+             (client.email?.toLowerCase().contains(query) ?? false) ||
+             client.phone.toLowerCase().contains(query) ||
+             client.documentNumber.toLowerCase().contains(query);
+    }).toList();
   }
-
+  
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

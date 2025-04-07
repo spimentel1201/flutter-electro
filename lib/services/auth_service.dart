@@ -35,11 +35,11 @@ class AuthService {
       await _apiService.setToken(response['token']);
       
       // Save user data
-      final user = User.fromMap(response['user']);
+      final user = User.fromJson(response['user']);
       _currentUser = user;
       
       // Store user ID securely
-      await _secureStorage.write(key: 'user_id', value: user.id.toString());
+      await _secureStorage.write(key: 'user_id', value: user.id);
       
       return user;
     } catch (e) {
@@ -53,7 +53,7 @@ class AuthService {
     required String email,
     required String password,
     required String phone,
-    UserRole role = UserRole.technician,
+    String role = 'TECHNICIAN',
   }) async {
     try {
       final response = await _apiService.post('auth/register', data: {
@@ -61,7 +61,7 @@ class AuthService {
         'email': email,
         'password': password,
         'phone': phone,
-        'role': role.toString().split('.').last,
+        'role': role,
       });
 
       // Save token if registration also logs in the user
@@ -70,7 +70,7 @@ class AuthService {
       }
       
       // Save user data
-      final user = User.fromMap(response['user']);
+      final user = User.fromJson(response['user']);
       _currentUser = user;
       
       return user;
@@ -102,7 +102,7 @@ class AuthService {
 
     try {
       final response = await _apiService.get('auth/user');
-      final user = User.fromMap(response);
+      final user = User.fromJson(response);
       _currentUser = user;
       return user;
     } catch (e) {

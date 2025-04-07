@@ -1,8 +1,9 @@
 import 'package:electro_workshop/services/customer_service.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:get_it/get_it.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:electro_workshop/services/api_service.dart';
+import 'package:electro_workshop/config/env_config.dart';
+import 'package:get_it/get_it.dart';
 import 'package:electro_workshop/services/auth_service.dart';
 import 'package:electro_workshop/services/inventory_service.dart';
 import 'package:electro_workshop/services/product_service.dart';
@@ -15,11 +16,7 @@ import 'package:electro_workshop/screens/home_screen.dart';
 final GetIt getIt = GetIt.instance;
 
 void setupServiceLocator() {
-  // Register services
-  getIt.registerLazySingleton<ApiService>(
-    () => ApiService(baseUrl: 'https://api.example.com/v1'),
-  );
-  
+
   getIt.registerLazySingleton<AuthService>(
     () => AuthService(apiService: getIt<ApiService>()),
   );
@@ -45,7 +42,16 @@ void setupServiceLocator() {
   );
 }
 
-void main() {
+void main() async {
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+  
+  // Register services
+  final getIt = GetIt.instance;
+  getIt.registerSingleton<ApiService>(
+    ApiService(baseUrl: EnvConfig.apiBaseUrl),
+  );
+  
   // Initialize service locator
   setupServiceLocator();
   
