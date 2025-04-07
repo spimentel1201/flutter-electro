@@ -53,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // Welcome message with user name
               Text(
-                'Bienvenido ${_currentUser?.name ?? "Usuario"}',
+                'Bienvenido ${_currentUser?.firstName ?? "Usuario"}',
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,

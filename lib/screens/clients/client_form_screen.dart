@@ -5,8 +5,9 @@ import 'package:electro_workshop/services/customer_service.dart';
 
 class ClientFormScreen extends StatefulWidget {
   final Customer? client;
+  final bool isEditing;
 
-  const ClientFormScreen({Key? key, this.client}) : super(key: key);
+  const ClientFormScreen({Key? key, this.client, this.isEditing = false}) : super(key: key);
 
   @override
   _ClientFormScreenState createState() => _ClientFormScreenState();
@@ -14,7 +15,7 @@ class ClientFormScreen extends StatefulWidget {
 
 class _ClientFormScreenState extends State<ClientFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final ClientService _clientService = ClientService();
+  final CustomerService _customerService = GetIt.instance<CustomerService>();
   
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -63,7 +64,7 @@ class _ClientFormScreenState extends State<ClientFormScreen> {
     
     try {
       final now = DateTime.now();
-      final Customer client = Customer(
+      final Customer customer = Customer(
         id: _isEditing ? widget.client!.id : '',  // ID will be assigned by backend for new clients
         name: _nameController.text,
         email: _emailController.text.isNotEmpty ? _emailController.text : null,
@@ -76,16 +77,16 @@ class _ClientFormScreenState extends State<ClientFormScreen> {
       );
       
       if (_isEditing) {
-        await _clientService.updateClient(client);
+        await _customerService.updateCustomer(customer);
       } else {
-        await _clientService.createClient(client);
+        await _customerService.createCustomer(customer);
       }
       
       if (mounted) {
         Navigator.pop(context, true);  // Return true to indicate success
       }
     } catch (e) {
-      _showErrorSnackBar('Failed to save client: ${e.toString()}');
+      _showErrorSnackBar('Failed to save customer: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() {

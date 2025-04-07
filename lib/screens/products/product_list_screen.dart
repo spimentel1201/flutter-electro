@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:electro_workshop/models/product.dart';
 import 'package:electro_workshop/services/product_service.dart';
-import 'package:electro_workshop/screens/products/product_detail_screen.dart';
 import 'package:electro_workshop/screens/products/product_form_screen.dart';
+import 'package:electro_workshop/screens/products/product_detail_screen.dart';
 
 class ProductListScreen extends StatefulWidget {
   const ProductListScreen({Key? key}) : super(key: key);
@@ -18,9 +18,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
   List<Product> _filteredProducts = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  String _selectedCategory = 'Todas';
-  List<String> _categories = ['Todas'];
-
+  String _selectedCategory = 'All';
+  List<String> _categories = ['All'];
+  
   @override
   void initState() {
     super.initState();
@@ -31,45 +31,59 @@ class _ProductListScreenState extends State<ProductListScreen> {
     setState(() {
       _isLoading = true;
     });
-
+    
     try {
       final products = await _productService.getAllProducts();
+      
+      // Extract unique categories
       final categories = products
           .map((product) => product.category)
+          .where((category) => category != null && category.isNotEmpty)
           .toSet()
           .toList();
-
+      
       setState(() {
         _products = products;
-        _filteredProducts = products;
-        _categories = ['Todas', ...categories];
+        if (categories.isNotEmpty) {
+          _categories = ['All', ...categories];
+        }
+        _applyFilters();
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      _showErrorSnackBar('Error al cargar productos: ${e.toString()}');
+      _showErrorSnackBar('Failed to load products: ${e.toString()}');
     }
   }
 
-  void _filterProducts() {
-    setState(() {
-      _filteredProducts = _products.where((product) {
-        // Aplicar filtro de categoría
-        final categoryMatch = _selectedCategory == 'Todas' || 
-                            product.category == _selectedCategory;
-        
-        // Aplicar filtro de búsqueda
-        final searchMatch = _searchQuery.isEmpty ||
-            product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            product.description.toLowerCase().contains(_searchQuery.toLowerCase());
-        
-        return categoryMatch && searchMatch;
+  void _applyFilters() {
+    var filtered = _products;
+    
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where((product) {
+        return product.name.toLowerCase().contains(query) ||
+               product.description!.toLowerCase().contains(query) ||
+               //product.sku.toLowerCase().contains(query) ||
+               product.category.toLowerCase().contains(query);
       }).toList();
+    }
+    
+    // Apply category filter
+    if (_selectedCategory != 'All') {
+      filtered = filtered.where((product) => 
+        product.category == _selectedCategory
+      ).toList();
+    }
+    
+    setState(() {
+      _filteredProducts = filtered;
     });
   }
-
+  
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -83,7 +97,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Catálogo de Productos'),
+        title: const Text('Products'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -98,20 +112,20 @@ class _ProductListScreenState extends State<ProductListScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredProducts.isEmpty
-                    ? const Center(child: Text('No se encontraron productos'))
-                    : _buildProductGrid(),
+                    ? const Center(child: Text('No products found'))
+                    : _buildProductList(),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Navegar a la pantalla de creación de producto
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => const ProductFormScreen(),
+              builder: (context) => const ProductFormScreen(isEditing: false),
             ),
           ).then((_) => _loadProducts());
         },
+        tooltip: 'Add Product',
         child: const Icon(Icons.add),
       ),
     );
@@ -119,30 +133,24 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
   Widget _buildSearchAndFilterBar() {
     return Container(
-      padding: const EdgeInsets.all(16.0),
-      color: Colors.blue.shade50,
+      padding: const EdgeInsets.all(16),
+      color: Colors.blue.withOpacity(0.05),
       child: Column(
         children: [
-          // Barra de búsqueda
           TextField(
-            decoration: InputDecoration(
-              hintText: 'Buscar productos...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              filled: true,
-              fillColor: Colors.white,
+            decoration: const InputDecoration(
+              hintText: 'Search products...',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
             ),
             onChanged: (value) {
               setState(() {
                 _searchQuery = value;
+                _applyFilters();
               });
-              _filterProducts();
             },
           ),
-          const SizedBox(height: 10),
-          // Filtro de categorías
+          const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -153,18 +161,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     label: Text(category),
                     selected: _selectedCategory == category,
                     onSelected: (selected) {
-                      setState(() {
-                        _selectedCategory = category;
-                      });
-                      _filterProducts();
+                      if (selected) {
+                        setState(() {
+                          _selectedCategory = category;
+                          _applyFilters();
+                        });
+                      }
                     },
-                    backgroundColor: Colors.white,
-                    selectedColor: Colors.blue,
-                    labelStyle: TextStyle(
-                      color: _selectedCategory == category
-                          ? Colors.white
-                          : Colors.blue,
-                    ),
                   ),
                 );
               }).toList(),
@@ -175,14 +178,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
     );
   }
 
-  Widget _buildProductGrid() {
+  Widget _buildProductList() {
     return GridView.builder(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 0.75,
-        crossAxisSpacing: 16.0,
-        mainAxisSpacing: 16.0,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
       ),
       itemCount: _filteredProducts.length,
       itemBuilder: (context, index) {
@@ -194,80 +197,64 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
   Widget _buildProductCard(Product product) {
     return Card(
-      elevation: 3.0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10.0),
-      ),
+      clipBehavior: Clip.antiAlias,
+      elevation: 2,
       child: InkWell(
         onTap: () {
-          // Navegar a la pantalla de detalle del producto
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => ProductDetailScreen(product: product),
+              builder: (context) => ProductDetailScreen(productId: product.id),
             ),
           ).then((_) => _loadProducts());
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Imagen o placeholder
-            Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.blue.shade100,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(10.0),
-                  topRight: Radius.circular(10.0),
-                ),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.inventory_2,
-                  size: 50,
-                  color: Colors.blue.shade700,
-                ),
-              ),
+            AspectRatio(
+              aspectRatio: 1.5,
+              child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                  ? Image.network(
+                      product.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image_not_supported, size: 50),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.image, size: 50),
+                    ),
             ),
             Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.all(8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Nombre del producto
                   Text(
                     product.name,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16.0,
+                      fontSize: 16,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4.0),
-                  // Categoría
-                  Text(
-                    product.category,
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 12.0,
-                    ),
-                  ),
-                  const SizedBox(height: 8.0),
-                  // Precio
+                  const SizedBox(height: 4),
                   Text(
                     '\$${product.price.toStringAsFixed(2)}',
                     style: TextStyle(
-                      color: Colors.blue.shade800,
+                      color: Theme.of(context).primaryColor,
                       fontWeight: FontWeight.bold,
-                      fontSize: 18.0,
                     ),
                   ),
-                  // Stock
+                  const SizedBox(height: 4),
                   Text(
                     'Stock: ${product.stock}',
                     style: TextStyle(
                       color: product.stock > 0 ? Colors.green : Colors.red,
-                      fontSize: 12.0,
                     ),
                   ),
                 ],

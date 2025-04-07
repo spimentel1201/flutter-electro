@@ -5,83 +5,48 @@ import 'package:electro_workshop/services/product_service.dart';
 import 'package:electro_workshop/screens/products/product_form_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
-  final Product product;
-  
-  const ProductDetailScreen({Key? key, required this.product}) : super(key: key);
-  
+  final String productId;
+
+  const ProductDetailScreen({Key? key, required this.productId}) : super(key: key);
+
   @override
   _ProductDetailScreenState createState() => _ProductDetailScreenState();
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final ProductService _productService = GetIt.instance<ProductService>();
-  late Product _product;
-  bool _isLoading = false;
+  Product? _product;
+  bool _isLoading = true;
   
   @override
   void initState() {
     super.initState();
-    _product = widget.product;
+    _loadProductDetails();
   }
   
+  Future<void> _loadProductDetails() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final product = await _productService.getProductById(widget.productId);
+      setState(() {
+        _product = product;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showErrorSnackBar('Failed to load product details: ${e.toString()}');
+    }
+  }
+
   Future<void> _refreshProductDetails() async {
-    setState(() {
-      _isLoading = true;
-    });
-    
-    try {
-      final updatedProduct = await _productService.getProductById(_product.id);
-      setState(() {
-        _product = updatedProduct;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorSnackBar('Error al cargar detalles del producto: ${e.toString()}');
-    }
+    await _loadProductDetails();
   }
-  
-  Future<void> _deleteProduct() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar eliminación'),
-        content: Text('¿Estás seguro de que deseas eliminar ${_product.name}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    ) ?? false;
-    
-    if (!confirmed) return;
-    
-    setState(() {
-      _isLoading = true;
-    });
-    
-    try {
-      await _productService.deleteProduct(_product.id);
-      if (mounted) {
-        Navigator.of(context).pop(true); // Return true to indicate deletion
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorSnackBar('Error al eliminar producto: ${e.toString()}');
-    }
-  }
-  
+
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -93,167 +58,254 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_product == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Product Details'),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : const Center(child: Text('Product not found')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_product.name),
+        title: Text(_product!.name),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => ProductFormScreen(product: _product),
-                ),
-              ).then((updated) {
-                if (updated == true) {
-                  _refreshProductDetails();
-                }
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: _deleteProduct,
+            onPressed: () => _navigateToEditProduct(),
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Imagen o placeholder
-                  Container(
-                    width: double.infinity,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade100,
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        Icons.inventory_2,
-                        size: 80,
-                        color: Colors.blue.shade700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24.0),
-                  
-                  // Información del producto
-                  _buildInfoSection('Información General', [
-                    _buildInfoRow('Nombre', _product.name),
-                    _buildInfoRow('Categoría', _product.category),
-                    _buildInfoRow('Descripción', _product.description),
-                  ]),
-                  
-                  const SizedBox(height: 16.0),
-                  
-                  // Información de precios
-                  _buildInfoSection('Precios', [
-                    _buildInfoRow('Precio de venta', '\$${_product.price.toStringAsFixed(2)}'),
-                    _buildInfoRow('Costo', '\$${_product.cost.toStringAsFixed(2)}'),
-                    _buildInfoRow('Margen', '\$${(_product.price - _product.cost).toStringAsFixed(2)} (${((_product.price - _product.cost) / _product.price * 100).toStringAsFixed(1)}%)'),
-                  ]),
-                  
-                  const SizedBox(height: 16.0),
-                  
-                  // Información de inventario
-                  _buildInfoSection('Inventario', [
-                    _buildInfoRow('Stock actual', _product.stock.toString(), 
-                      valueColor: _product.stock > 0 ? Colors.green : Colors.red),
-                    _buildInfoRow('Estado', _product.isActive ? 'Activo' : 'Inactivo',
-                      valueColor: _product.isActive ? Colors.green : Colors.red),
-                  ]),
-                  
-                  const SizedBox(height: 32.0),
-                  
-                  // Botones de acción
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => ProductFormScreen(product: _product),
-                            ),
-                          ).then((updated) {
-                            if (updated == true) {
-                              _refreshProductDetails();
-                            }
-                          });
-                        },
-                        icon: const Icon(Icons.edit),
-                        label: const Text('Editar'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: _deleteProduct,
-                        icon: const Icon(Icons.delete),
-                        label: const Text('Eliminar'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+          : RefreshIndicator(
+              onRefresh: _refreshProductDetails,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildProductImage(),
+                    const SizedBox(height: 16.0),
+                    _buildProductInfo(),
+                    const SizedBox(height: 24.0),
+                    _buildStockManagement(),
+                  ],
+                ),
               ),
             ),
     );
   }
   
-  Widget _buildInfoSection(String title, List<Widget> children) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18.0,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
-          ),
+  Widget _buildProductImage() {
+    return Center(
+      child: Container(
+        height: 200,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.grey[200],
         ),
-        const Divider(),
-        ...children,
-      ],
+        child: _product!.imageUrl != null && _product!.imageUrl!.isNotEmpty
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  _product!.imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Center(
+                      child: Icon(Icons.image_not_supported, size: 50),
+                    );
+                  },
+                ),
+              )
+            : const Center(
+                child: Icon(Icons.image, size: 50),
+              ),
+      ),
     );
   }
   
-  Widget _buildInfoRow(String label, String value, {Color? valueColor}) {
+  Widget _buildProductInfo() {
+    return Card(
+      elevation: 2.0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Product Information',
+              style: TextStyle(
+                fontSize: 18.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Divider(),
+            _buildInfoRow('Name', _product!.name),
+            //_buildInfoRow('SKU', _product!.sku),
+            _buildInfoRow('Category', _product!.category),
+            _buildInfoRow('Price', '\$${_product!.price.toStringAsFixed(2)}'),
+            _buildInfoRow('Stock', '${_product!.stock}'),
+            //_buildInfoRow('Status', _product!.active ? 'Active' : 'Inactive'),
+            const SizedBox(height: 8),
+            const Text(
+              'Description',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+Text(_product!.description ?? 'No description available'),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildStockManagement() {
+    return Card(
+      elevation: 2.0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Stock Management',
+              style: TextStyle(
+                fontSize: 18.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Divider(),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Stock'),
+                    onPressed: () => _showStockUpdateDialog(true),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.remove),
+                    label: const Text('Remove Stock'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    onPressed: _product!.stock > 0 
+                        ? () => _showStockUpdateDialog(false)
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 100,
             child: Text(
               '$label:',
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.grey.shade700,
               ),
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: valueColor,
-              ),
-            ),
+            child: Text(value),
           ),
         ],
       ),
     );
+  }
+  
+  void _navigateToEditProduct() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProductFormScreen(product: _product, isEditing: true),
+      ),
+    );
+    
+    if (result == true) {
+      _refreshProductDetails();
+    }
+  }
+  
+  void _showStockUpdateDialog(bool isAdding) {
+    final TextEditingController quantityController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isAdding ? 'Add Stock' : 'Remove Stock'),
+        content: TextField(
+          controller: quantityController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Quantity',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final quantity = int.tryParse(quantityController.text);
+              if (quantity == null || quantity <= 0) {
+                _showErrorSnackBar('Please enter a valid quantity');
+                return;
+              }
+              
+              if (!isAdding && quantity > _product!.stock) {
+                _showErrorSnackBar('Cannot remove more than available stock');
+                return;
+              }
+              
+              Navigator.pop(context);
+              await _updateStock(isAdding ? quantity : -quantity);
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _updateStock(int changeAmount) async {
+    try {
+      final newStock = _product!.stock + changeAmount;
+      await _productService.updateProductStock(_product!.id, newStock);
+      _refreshProductDetails();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Stock updated successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      _showErrorSnackBar('Failed to update stock: ${e.toString()}');
+    }
   }
 }

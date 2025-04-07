@@ -1,79 +1,87 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:electro_workshop/models/product.dart';
 import 'package:electro_workshop/services/product_service.dart';
 
 class ProductFormScreen extends StatefulWidget {
   final Product? product;
-  
-  const ProductFormScreen({Key? key, this.product}) : super(key: key);
-  
+  final bool isEditing;
+
+  const ProductFormScreen({Key? key, this.product, this.isEditing = false}) : super(key: key);
+
   @override
   _ProductFormScreenState createState() => _ProductFormScreenState();
 }
 
 class _ProductFormScreenState extends State<ProductFormScreen> {
-  final ProductService _productService = GetIt.instance<ProductService>();
   final _formKey = GlobalKey<FormState>();
+  final ProductService _productService = GetIt.instance<ProductService>();
   
-  // Controllers
-  final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _categoryController = TextEditingController();
-  final _priceController = TextEditingController();
-  final _costController = TextEditingController();
-  final _stockController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _skuController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _stockController = TextEditingController();
+  final TextEditingController _categoryController = TextEditingController();
+  final TextEditingController _imageUrlController = TextEditingController();
   
-  bool _isActive = true;
   bool _isLoading = false;
   bool _isEditing = false;
-  
+  bool _isActive = true;
+
   @override
   void initState() {
     super.initState();
-    _isEditing = widget.product != null;
+    _isEditing = widget.isEditing;
     
-    if (_isEditing) {
-      // Populate form with existing product data
+    if (_isEditing && widget.product != null) {
       _nameController.text = widget.product!.name;
-      _descriptionController.text = widget.product!.description;
-      _categoryController.text = widget.product!.category;
+      //_skuController.text = widget.product!.sku;
+      _descriptionController.text = widget.product!.description!;
       _priceController.text = widget.product!.price.toString();
-      _costController.text = widget.product!.cost.toString();
       _stockController.text = widget.product!.stock.toString();
-      _isActive = widget.product!.isActive;
+      _categoryController.text = widget.product!.category;
+      _imageUrlController.text = widget.product!.imageUrl ?? '';
+      //_isActive = widget.product!.active;
     }
   }
-  
+
   @override
   void dispose() {
     _nameController.dispose();
+    _skuController.dispose();
     _descriptionController.dispose();
-    _categoryController.dispose();
     _priceController.dispose();
-    _costController.dispose();
     _stockController.dispose();
+    _categoryController.dispose();
+    _imageUrlController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _saveProduct() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
     
     setState(() {
       _isLoading = true;
     });
     
     try {
-      final product = Product(
-        id: _isEditing ? widget.product!.id : 0, // ID will be assigned by backend for new products
+      final now = DateTime.now();
+      final Product product = Product(
+        id: _isEditing ? widget.product!.id : '',  // ID will be assigned by backend for new products
         name: _nameController.text,
+        //sku: _skuController.text,
         description: _descriptionController.text,
-        category: _categoryController.text,
         price: double.parse(_priceController.text),
-        cost: double.parse(_costController.text),
+        cost: double.parse(_priceController.text)*2,  // Assuming cost is same as price for now
         stock: int.parse(_stockController.text),
-        isActive: _isActive,
+        category: _categoryController.text,
+        imageUrl: _imageUrlController.text.isNotEmpty ? _imageUrlController.text : null,
+        //active: _isActive,
+        createdAt: _isEditing ? widget.product!.createdAt : now,
+        updatedAt: now,
       );
       
       if (_isEditing) {
@@ -83,16 +91,19 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       }
       
       if (mounted) {
-        Navigator.of(context).pop(true); // Return true to indicate success
+        Navigator.pop(context, true);  // Return true to indicate success
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorSnackBar('Error al guardar producto: ${e.toString()}');
+      _showErrorSnackBar('Failed to save product: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
-  
+
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -106,224 +117,144 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Editar Producto' : 'Nuevo Producto'),
+        title: Text(_isEditing ? 'Edit Product' : 'Add Product'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Información básica
-                    _buildSectionTitle('Información Básica'),
-                    
                     TextFormField(
                       controller: _nameController,
                       decoration: const InputDecoration(
-                        labelText: 'Nombre del producto *',
-                        hintText: 'Ingrese el nombre del producto',
-                        prefixIcon: Icon(Icons.inventory),
+                        labelText: 'Product Name *',
+                        border: OutlineInputBorder(),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Por favor ingrese un nombre';
+                          return 'Please enter a product name';
                         }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16.0),
-                    
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _skuController,
+                      decoration: const InputDecoration(
+                        labelText: 'SKU *',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a SKU';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _categoryController,
                       decoration: const InputDecoration(
-                        labelText: 'Categoría *',
-                        hintText: 'Ingrese la categoría del producto',
-                        prefixIcon: Icon(Icons.category),
+                        labelText: 'Category *',
+                        border: OutlineInputBorder(),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Por favor ingrese una categoría';
+                          return 'Please enter a category';
                         }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16.0),
-                    
+                    const SizedBox(height: 16),
                     TextFormField(
-                      controller: _descriptionController,
+                      controller: _priceController,
                       decoration: const InputDecoration(
-                        labelText: 'Descripción *',
-                        hintText: 'Ingrese la descripción del producto',
-                        prefixIcon: Icon(Icons.description),
+                        labelText: 'Price *',
+                        border: OutlineInputBorder(),
+                        prefixText: '\$',
                       ),
-                      maxLines: 3,
+                      keyboardType: TextInputType.number,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Por favor ingrese una descripción';
+                          return 'Please enter a price';
+                        }
+                        if (double.tryParse(value) == null) {
+                          return 'Please enter a valid number';
                         }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 24.0),
-                    
-                    // Información de precios
-                    _buildSectionTitle('Precios'),
-                    
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _priceController,
-                            decoration: const InputDecoration(
-                              labelText: 'Precio de venta *',
-                              hintText: '0.00',
-                              prefixIcon: Icon(Icons.attach_money),
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-                            ],
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Ingrese un precio';
-                              }
-                              if (double.tryParse(value) == null) {
-                                return 'Ingrese un número válido';
-                              }
-                              if (double.parse(value) <= 0) {
-                                return 'El precio debe ser mayor a 0';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16.0),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _costController,
-                            decoration: const InputDecoration(
-                              labelText: 'Costo *',
-                              hintText: '0.00',
-                              prefixIcon: Icon(Icons.money_off),
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[\d\.]')),
-                            ],
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Ingrese un costo';
-                              }
-                              if (double.tryParse(value) == null) {
-                                return 'Ingrese un número válido';
-                              }
-                              if (double.parse(value) < 0) {
-                                return 'El costo no puede ser negativo';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24.0),
-                    
-                    // Información de inventario
-                    _buildSectionTitle('Inventario'),
-                    
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _stockController,
                       decoration: const InputDecoration(
                         labelText: 'Stock *',
-                        hintText: '0',
-                        prefixIcon: Icon(Icons.inventory_2),
+                        border: OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Ingrese una cantidad';
+                          return 'Please enter stock quantity';
                         }
                         if (int.tryParse(value) == null) {
-                          return 'Ingrese un número válido';
-                        }
-                        if (int.parse(value) < 0) {
-                          return 'El stock no puede ser negativo';
+                          return 'Please enter a valid number';
                         }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16.0),
-                    
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description *',
+                        border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                      maxLines: 5,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a description';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _imageUrlController,
+                      decoration: const InputDecoration(
+                        labelText: 'Image URL (optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     SwitchListTile(
-                      title: const Text('Producto activo'),
-                      subtitle: const Text('Los productos inactivos no aparecerán en el catálogo'),
+                      title: const Text('Active'),
                       value: _isActive,
-                      activeColor: Colors.blue,
                       onChanged: (value) {
                         setState(() {
                           _isActive = value;
                         });
                       },
                     ),
-                    
-                    const SizedBox(height: 32.0),
-                    
-                    // Botones de acción
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _saveProduct,
-                        icon: const Icon(Icons.save),
-                        label: Text(_isEditing ? 'Actualizar Producto' : 'Crear Producto'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16.0),
-                        ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _saveProduct,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: Text(
+                        _isEditing ? 'Update Product' : 'Create Product',
+                        style: const TextStyle(fontSize: 16),
                       ),
                     ),
-                    const SizedBox(height: 16.0),
-                    
-                    if (_isEditing)
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.cancel),
-                          label: const Text('Cancelar'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16.0),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
             ),
-    );
-  }
-  
-  Widget _buildSectionTitle(String title) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18.0,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
-          ),
-        ),
-        const Divider(),
-        const SizedBox(height: 8.0),
-      ],
     );
   }
 }

@@ -1,53 +1,77 @@
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:electro_workshop/models/customer.dart';
-import 'package:electro_workshop/services/client_service.dart';
+import 'package:electro_workshop/services/customer_service.dart';
 import 'package:electro_workshop/screens/clients/client_form_screen.dart';
 
 class ClientDetailScreen extends StatefulWidget {
-  final Customer client;
+  final String customerId;
 
-  const ClientDetailScreen({Key? key, required this.client}) : super(key: key);
+  const ClientDetailScreen({Key? key, required this.customerId}) : super(key: key);
 
   @override
   _ClientDetailScreenState createState() => _ClientDetailScreenState();
 }
 
 class _ClientDetailScreenState extends State<ClientDetailScreen> {
-  final ClientService _clientService = ClientService();
-  late Customer _client;
-  bool _isLoading = false;
+  final CustomerService _customerService = GetIt.instance<CustomerService>();
+  Customer? _customer;
+  bool _isLoading = true;
   
   @override
   void initState() {
     super.initState();
-    _client = widget.client;
-    _refreshClientDetails();
+    _loadCustomerDetails();
   }
   
-  Future<void> _refreshClientDetails() async {
+  Future<void> _loadCustomerDetails() async {
     setState(() {
       _isLoading = true;
     });
     
     try {
-      final updatedClient = await _clientService.getClient(_client.id);
+      final customer = await _customerService.getCustomerById(widget.customerId);
       setState(() {
-        _client = updatedClient;
+        _customer = customer;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      _showErrorSnackBar('Failed to load client details: ${e.toString()}');
+      _showErrorSnackBar('Failed to load customer details: ${e.toString()}');
     }
   }
-  
+
+  Future<void> _refreshClientDetails() async {
+    await _loadCustomerDetails();
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_customer == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Client Details'),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : const Center(child: Text('Customer not found')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_client.name),
+        title: Text(_customer!.name),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -99,12 +123,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               ),
             ),
             const Divider(),
-            _buildInfoRow('Name', _client.name),
-            if (_client.email != null) _buildInfoRow('Email', _client.email!),
-            _buildInfoRow('Phone', _client.phone),
-            _buildInfoRow('Document', '${_client.documentType} ${_client.documentNumber}'),
-            if (_client.address != null) _buildInfoRow('Address', _client.address!),
-            _buildInfoRow('Client since', _formatDate(_client.createdAt)),
+            _buildInfoRow('Name', _customer!.name),
+            if (_customer!.email != null) _buildInfoRow('Email', _customer!.email!),
+            _buildInfoRow('Phone', _customer!.phone),
+            _buildInfoRow('Document', '${_customer!.documentType ?? 'N/A'} ${_customer!.documentNumber ?? 'N/A'}'),
+            if (_customer!.address != null) _buildInfoRow('Address', _customer!.address!),
+            _buildInfoRow('Client since', _formatDate(_customer!.createdAt)),
           ],
         ),
       ),
@@ -218,7 +242,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ClientFormScreen(client: _client),
+        builder: (context) => ClientFormScreen(client: _customer, isEditing: true),
       ),
     );
     
@@ -274,12 +298,4 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     // Implement navigation to new sale screen
   }
   
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
 }

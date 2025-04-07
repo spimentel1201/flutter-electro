@@ -13,48 +13,67 @@ class ClientListScreen extends StatefulWidget {
 }
 
 class _ClientListScreenState extends State<ClientListScreen> {
-  final ClientService _clientService = ClientService();
-  List<Customer> _clients = [];
+  final CustomerService _customerService = GetIt.instance<CustomerService>();
+  List<Customer> _customers = [];
+  List<Customer> _filteredCustomers = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  
+  // Add missing variables
+  String _selectedDocumentType = 'All';
+  final List<String> _documentTypes = ['All', 'DNI', 'RUC', 'Passport', 'Other'];
   
   @override
   void initState() {
     super.initState();
-    _loadClients();
+    _loadCustomers();
   }
 
-  Future<void> _loadClients() async {
+  Future<void> _loadCustomers() async {
     setState(() {
       _isLoading = true;
     });
     
     try {
-      final clients = await _clientService.getClients();
+      final customers = await _customerService.getAllCustomers();
       setState(() {
-        _clients = clients;
+        _customers = customers;
+        _applyFilters(); // Apply filters after loading
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      _showErrorSnackBar('Failed to load clients: ${e.toString()}');
+      _showErrorSnackBar('Failed to load customers: ${e.toString()}');
     }
   }
 
-  List<Customer> get _filteredClients {
-    if (_searchQuery.isEmpty) {
-      return _clients;
+  // Add missing method
+  void _applyFilters() {
+    var filtered = _customers;
+    
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where((customer) {
+        return customer.name.toLowerCase().contains(query) ||
+               (customer.email?.toLowerCase().contains(query) ?? false) ||
+               customer.phone.toLowerCase().contains(query) ||
+               (customer.documentNumber?.toLowerCase().contains(query) ?? false);
+      }).toList();
     }
     
-    final query = _searchQuery.toLowerCase();
-    return _clients.where((client) {
-      return client.name.toLowerCase().contains(query) ||
-             (client.email?.toLowerCase().contains(query) ?? false) ||
-             client.phone.toLowerCase().contains(query) ||
-             client.documentNumber.toLowerCase().contains(query);
-    }).toList();
+    // Apply document type filter
+    if (_selectedDocumentType != 'All') {
+      filtered = filtered.where((customer) => 
+        customer.documentType == _selectedDocumentType
+      ).toList();
+    }
+    
+    setState(() {
+      _filteredCustomers = filtered;
+    });
   }
   
   void _showErrorSnackBar(String message) {
