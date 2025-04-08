@@ -9,7 +9,7 @@ class ProductService {
   // Get all products
   Future<List<Product>> getAllProducts() async {
     try {
-      final response = await _apiService.get('products');
+      final response = await _apiService.get('products', queryParams: {});
       return (response as List)
           .map((item) => Product.fromJson(item))
           .toList();
@@ -21,7 +21,7 @@ class ProductService {
   // Get products by category
   Future<List<Product>> getProductsByCategory(String category) async {
     try {
-      final response = await _apiService.get('products/category/$category');
+      final response = await _apiService.get('products/category/$category', queryParams: {});
       return (response as List)
           .map((item) => Product.fromJson(item))
           .toList();
@@ -33,7 +33,7 @@ class ProductService {
   // Get product by ID
   Future<Product> getProductById(String id) async {
     try {
-      final response = await _apiService.get('products/$id');
+      final response = await _apiService.get('products/$id', queryParams: {});
       return Product.fromJson(response);
     } catch (e) {
       throw Exception('Failed to load product: ${e.toString()}');
@@ -84,7 +84,7 @@ class ProductService {
   // Search products
   Future<List<Product>> searchProducts(String query) async {
     try {
-      final response = await _apiService.get('products/search?q=$query');
+      final response = await _apiService.get('products/search?q=$query', queryParams: {});
       return (response as List)
           .map((item) => Product.fromJson(item))
           .toList();
@@ -96,7 +96,7 @@ class ProductService {
   // Get active products
   Future<List<Product>> getActiveProducts() async {
     try {
-      final response = await _apiService.get('products/active');
+      final response = await _apiService.get('products/active', queryParams: {});
       return (response as List)
           .map((item) => Product.fromJson(item))
           .toList();

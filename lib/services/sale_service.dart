@@ -17,7 +17,7 @@ class SaleService {
   // Get all sales
   Future<List<Sale>> getAllSales() async {
     try {
-      final response = await _apiService.get('sales');
+      final response = await _apiService.get('sales', queryParams: {});
       return (response as List)
           .map((item) => Sale.fromJson(item as Map<String, dynamic>))
           .toList();
@@ -30,7 +30,7 @@ class SaleService {
   Future<List<Sale>> getSalesByDateRange(DateTime startDate, DateTime endDate) async {
     try {
       final response = await _apiService.get(
-        'sales/date-range?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}'
+        'sales/date-range?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}', queryParams: {}
       );
       return (response as List)
           .map((item) => Sale.fromJson(item as Map<String, dynamic>))
@@ -43,7 +43,7 @@ class SaleService {
   // Get sales by customer
   Future<List<Sale>> getSalesByCustomer(String customerId) async {
     try {
-      final response = await _apiService.get('sales/customer/$customerId');
+      final response = await _apiService.get('sales/customer/$customerId', queryParams: {});
       return (response as List)
           .map((item) => Sale.fromJson(item as Map<String, dynamic>))
           .toList();
@@ -55,7 +55,7 @@ class SaleService {
   // Get sale by ID
   Future<Sale> getSaleById(String id) async {
     try {
-      final response = await _apiService.get('sales/$id');
+      final response = await _apiService.get('sales/$id', queryParams: {});
       return Sale.fromJson(response);
     } catch (e) {
       throw Exception('Failed to load sale: ${e.toString()}');
@@ -117,7 +117,7 @@ class SaleService {
   Future<Map<String, dynamic>> getSalesStatistics(DateTime startDate, DateTime endDate) async {
     try {
       final response = await _apiService.get(
-        'sales/statistics?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}'
+        'sales/statistics?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}', queryParams: {}
       );
       return response as Map<String, dynamic>;
     } catch (e) {
@@ -129,7 +129,7 @@ class SaleService {
   Future<List<Map<String, dynamic>>> getTopSellingProducts(DateTime startDate, DateTime endDate, {int limit = 10}) async {
     try {
       final response = await _apiService.get(
-        'sales/top-products?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}&limit=$limit'
+        'sales/top-products?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}&limit=$limit', queryParams: {}
       );
       return (response as List).cast<Map<String, dynamic>>();
     } catch (e) {
@@ -140,7 +140,7 @@ class SaleService {
   // Generate invoice
   Future<String> generateInvoice(String saleId) async {
     try {
-      final response = await _apiService.get('sales/$saleId/invoice');
+      final response = await _apiService.get('sales/$saleId/invoice', queryParams: {});
       return response['invoiceUrl'];
     } catch (e) {
       throw Exception('Failed to generate invoice: ${e.toString()}');

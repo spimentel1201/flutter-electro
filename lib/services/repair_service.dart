@@ -9,7 +9,7 @@ class RepairService {
   // Get all repair orders
   Future<List<RepairOrder>> getAllRepairOrders() async {
     try {
-      final response = await _apiService.get('repairs');
+      final response = await _apiService.get('repairs', queryParams: {});
       return (response as List)
           .map((order) => RepairOrder.fromJson(order as Map<String, dynamic>))
           .toList();
@@ -21,7 +21,7 @@ class RepairService {
   // Get repair orders by status
   Future<List<RepairOrder>> getRepairOrdersByStatus(String status) async {
     try {
-      final response = await _apiService.get('repairs/status/$status');
+      final response = await _apiService.get('repairs/status/$status', queryParams: {});
       return (response as List)
           .map((order) => RepairOrder.fromJson(order as Map<String, dynamic>))
           .toList();
@@ -33,7 +33,7 @@ class RepairService {
   // Get repair orders by technician
   Future<List<RepairOrder>> getRepairOrdersByTechnician(String technicianId) async {
     try {
-      final response = await _apiService.get('repairs/technician/$technicianId');
+      final response = await _apiService.get('repairs/technician/$technicianId', queryParams: {});
       return (response as List)
           .map((order) => RepairOrder.fromJson(order as Map<String, dynamic>))
           .toList();
@@ -45,7 +45,7 @@ class RepairService {
   // Get repair orders by customer
   Future<List<RepairOrder>> getRepairOrdersByCustomer(String customerId) async {
     try {
-      final response = await _apiService.get('repairs/customer/$customerId');
+      final response = await _apiService.get('repairs/customer/$customerId', queryParams: {});
       return (response as List)
           .map((order) => RepairOrder.fromJson(order as Map<String, dynamic>))
           .toList();
@@ -57,7 +57,7 @@ class RepairService {
   // Get repair order by ID
   Future<RepairOrder> getRepairOrderById(String id) async {
     try {
-      final response = await _apiService.get('repairs/$id');
+      final response = await _apiService.get('repairs/$id', queryParams: {});
       return RepairOrder.fromJson(response);
     } catch (e) {
       throw Exception('Failed to load repair order: ${e.toString()}');
@@ -75,7 +75,7 @@ class RepairService {
   }
 
   // Update repair order
-  Future<RepairOrder> updateRepairOrder(RepairOrder order) async {
+  Future<RepairOrder> updateRepairOrder(RepairOrder order, String s) async {
     try {
       final response = await _apiService.put('repairs/${order.id}', data: order.toJson());
       return RepairOrder.fromJson(response);

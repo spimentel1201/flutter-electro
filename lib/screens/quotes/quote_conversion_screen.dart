@@ -3,9 +3,10 @@ import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:electro_workshop/models/quote.dart';
 import 'package:electro_workshop/services/quote_service.dart';
+import 'package:electro_workshop/services/user_service.dart';
 
 class QuoteConversionScreen extends StatefulWidget {
-  final int quoteId;
+  final String quoteId; // Changed from int to String
 
   const QuoteConversionScreen({super.key, required this.quoteId});
 
@@ -15,6 +16,7 @@ class QuoteConversionScreen extends StatefulWidget {
 
 class _QuoteConversionScreenState extends State<QuoteConversionScreen> {
   final QuoteService _quoteService = GetIt.instance<QuoteService>();
+  final UserService _userService = GetIt.instance<UserService>();
   Quote? _quote;
   bool _isLoading = true;
   bool _isConverting = false;
@@ -24,18 +26,33 @@ class _QuoteConversionScreenState extends State<QuoteConversionScreen> {
   bool _createInvoice = true;
   bool _assignTechnician = false;
   String? _selectedTechnician;
-  final List<String> _technicians = ['Técnico 1', 'Técnico 2', 'Técnico 3']; // En una app real, esto vendría de una API
+  List<Map<String, String>> _technicians = [];
 
   @override
   void initState() {
     super.initState();
     _loadQuote();
+    _loadTechnicians();
   }
 
   @override
   void dispose() {
     _notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadTechnicians() async {
+    try {
+      final technicians = await _userService.getTechnicians();
+      setState(() {
+        _technicians = technicians.map((tech) => {
+          'id': tech.id,
+          'name': tech.firstName,
+        }).toList();
+      });
+    } catch (e) {
+      _showErrorSnackBar('Error al cargar técnicos: ${e.toString()}');
+    }
   }
 
   Future<void> _loadQuote() async {
@@ -51,7 +68,7 @@ class _QuoteConversionScreenState extends State<QuoteConversionScreen> {
       });
 
       // Verificar si el presupuesto está aprobado
-      if (quote.status != QuoteStatus.approved) {
+      if (quote.status != QuoteStatus.APPROVED) {
         _showErrorSnackBar('Solo se pueden convertir presupuestos aprobados');
         Future.delayed(const Duration(seconds: 2), () {
           Navigator.of(context).pop();
@@ -87,7 +104,7 @@ class _QuoteConversionScreenState extends State<QuoteConversionScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_quote == null) return;
 
-    if (_quote!.status != QuoteStatus.approved) {
+    if (_quote!.status != QuoteStatus.APPROVED) {
       _showErrorSnackBar('Solo se pueden convertir presupuestos aprobados');
       return;
     }
@@ -98,23 +115,21 @@ class _QuoteConversionScreenState extends State<QuoteConversionScreen> {
 
     try {
       // En una implementación real, enviaríamos todos los parámetros adicionales
-      final result = await _quoteService.convertQuoteToInvoice(_quote!.id);
+      final result = await _quoteService.convertToSale(_quote!.id);
       
       _showSuccessSnackBar(
-        'Presupuesto convertido a orden de reparación correctamente. ID: ${result['repairOrderId']}',
+        'Presupuesto convertido a venta correctamente',
       );
       
-      // Esperar un momento para que el usuario vea el mensaje de éxito
-      await Future.delayed(const Duration(seconds: 1));
-      
-      if (mounted) {
-        Navigator.of(context).pop(true); // Volver a la pantalla anterior con resultado exitoso
-      }
+      // Navegar de vuelta después de un breve retraso
+      Future.delayed(const Duration(seconds: 2), () {
+        Navigator.of(context).pop(true);
+      });
     } catch (e) {
-      _showErrorSnackBar('Error al convertir el presupuesto: ${e.toString()}');
       setState(() {
         _isConverting = false;
       });
+      _showErrorSnackBar('Error al convertir el presupuesto: ${e.toString()}');
     }
   }
 
@@ -149,20 +164,40 @@ class _QuoteConversionScreenState extends State<QuoteConversionScreen> {
                                 const SizedBox(height: 16),
                                 _buildInfoRow(
                                   'Cliente',
-                                  _quote!.repairOrder.customer.name,
+                                  _quote!.customer?.name ?? 'N/A',
                                 ),
-                                _buildInfoRow(
-                                  'Dispositivo',
-                                  '${_quote!.repairOrder.deviceType} ${_quote!.repairOrder.brand} ${_quote!.repairOrder.model}',
+                                // Replace single device with devices list
+                                Text(
+                                  'Dispositivos:',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
+                                const SizedBox(height: 8),
+                                if (_quote!.repairOrder?.items != null && _quote!.repairOrder!.items.isNotEmpty)
+                                  ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: _quote!.repairOrder!.items.length,
+                                    itemBuilder: (context, index) {
+                                      final device = _quote!.repairOrder!.items[index];
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                        child: Text(
+                                          '• ${device.deviceType ?? 'N/A'} ${device.brand ?? ''} ${device.model ?? ''}',
+                                        ),
+                                      );
+                                    },
+                                  )
+                                else
+                                  const Text('No hay dispositivos disponibles'),
+                                const SizedBox(height: 8),
                                 _buildInfoRow(
                                   'Total',
                                   NumberFormat.currency(locale: 'es_ES', symbol: '€')
-                                      .format(_quote!.total),
+                                      .format(_quote!.totalAmount),
                                 ),
                                 _buildInfoRow(
                                   'Estado',
-                                  _getStatusText(_quote!.status),
+                                  _getStatusText(_quote!.status as QuoteStatus),
                                 ),
                               ],
                             ),
@@ -225,10 +260,10 @@ class _QuoteConversionScreenState extends State<QuoteConversionScreen> {
                                       border: OutlineInputBorder(),
                                     ),
                                     value: _selectedTechnician,
-                                    items: _technicians.map((String technician) {
+                                    items: _technicians.map((tech) {
                                       return DropdownMenuItem<String>(
-                                        value: technician,
-                                        child: Text(technician),
+                                        value: tech['id'],
+                                        child: Text(tech['name'] ?? 'N/A'),
                                       );
                                     }).toList(),
                                     onChanged: (String? newValue) {
@@ -308,15 +343,13 @@ class _QuoteConversionScreenState extends State<QuoteConversionScreen> {
 
   String _getStatusText(QuoteStatus status) {
     switch (status) {
-      case QuoteStatus.draft:
-        return 'Borrador';
-      case QuoteStatus.pending:
+      case QuoteStatus.PENDING:
         return 'Pendiente';
-      case QuoteStatus.approved:
+      case QuoteStatus.APPROVED:
         return 'Aprobado';
-      case QuoteStatus.rejected:
+      case QuoteStatus.REJECTED:
         return 'Rechazado';
-      case QuoteStatus.expired:
+      case QuoteStatus.EXPIRED:
         return 'Expirado';
       default:
         return 'Desconocido';

@@ -1,41 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
-import 'package:intl/intl.dart';
 import 'package:electro_workshop/models/quote.dart';
 import 'package:electro_workshop/services/quote_service.dart';
-import 'package:electro_workshop/services/repair_service.dart';
 import 'package:electro_workshop/screens/quotes/quote_form_screen.dart';
-import 'package:electro_workshop/screens/quotes/quote_template_screen.dart';
-import 'package:electro_workshop/screens/quotes/quote_share_screen.dart';
-import 'package:electro_workshop/screens/quotes/quote_conversion_screen.dart';
+import 'package:intl/intl.dart';
 
 class QuoteDetailScreen extends StatefulWidget {
-  final int quoteId;
+  final String quoteId;
 
-  const QuoteDetailScreen({super.key, required this.quoteId});
+  const QuoteDetailScreen({Key? key, required this.quoteId}) : super(key: key);
 
   @override
-  State<QuoteDetailScreen> createState() => _QuoteDetailScreenState();
+  _QuoteDetailScreenState createState() => _QuoteDetailScreenState();
 }
 
 class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
   final QuoteService _quoteService = GetIt.instance<QuoteService>();
-  final RepairService _repairService = GetIt.instance<RepairService>();
   Quote? _quote;
   bool _isLoading = true;
-
+  bool _isProcessing = false;
+  
   @override
   void initState() {
     super.initState();
-    _loadQuote();
+    _loadQuoteDetails();
   }
-
-  Future<void> _loadQuote() async {
+  
+  Future<void> _loadQuoteDetails() async {
     setState(() {
       _isLoading = true;
     });
-
+    
     try {
       final quote = await _quoteService.getQuoteById(widget.quoteId);
       setState(() {
@@ -46,8 +41,12 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
       setState(() {
         _isLoading = false;
       });
-      _showErrorSnackBar('Error al cargar el presupuesto: ${e.toString()}');
+      _showErrorSnackBar('Failed to load quote details: ${e.toString()}');
     }
+  }
+
+  Future<void> _refreshQuoteDetails() async {
+    await _loadQuoteDetails();
   }
 
   void _showErrorSnackBar(String message) {
@@ -68,363 +67,305 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
     );
   }
 
-  String _getStatusText(QuoteStatus status) {
-    switch (status) {
-      case QuoteStatus.draft:
-        return 'Borrador';
-      case QuoteStatus.pending:
-        return 'Pendiente';
-      case QuoteStatus.approved:
-        return 'Aprobado';
-      case QuoteStatus.rejected:
-        return 'Rechazado';
-      case QuoteStatus.expired:
-        return 'Expirado';
-      default:
-        return 'Desconocido';
-    }
-  }
-
-  Color _getStatusColor(QuoteStatus status) {
-    switch (status) {
-      case QuoteStatus.draft:
-        return Colors.grey;
-      case QuoteStatus.pending:
-        return Colors.orange;
-      case QuoteStatus.approved:
-        return Colors.green;
-      case QuoteStatus.rejected:
-        return Colors.red;
-      case QuoteStatus.expired:
-        return Colors.purple;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  Future<void> _sendQuoteByEmail() async {
-    if (_quote == null) return;
-
-    // Redirigir a la pantalla de compartir para más opciones
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => QuoteShareScreen(quoteId: _quote!.id),
-      ),
-    );
-  }
-
-  Future<void> _sendQuoteByWhatsApp() async {
-    if (_quote == null) return;
-
-    // Redirigir a la pantalla de compartir para más opciones
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => QuoteShareScreen(quoteId: _quote!.id),
-      ),
-    );
-  }
-
-  Future<void> _updateQuoteStatus(QuoteStatus newStatus) async {
-    if (_quote == null) return;
-
-    try {
-      await _quoteService.updateQuoteStatus(_quote!.id, newStatus);
-      _loadQuote();
-      _showSuccessSnackBar('Estado del presupuesto actualizado correctamente');
-    } catch (e) {
-      _showErrorSnackBar('Error al actualizar el estado del presupuesto: ${e.toString()}');
-    }
-  }
-
-  Future<void> _convertToRepairOrder() async {
-    if (_quote == null) return;
-
-    if (_quote!.status != QuoteStatus.approved) {
-      _showErrorSnackBar('Solo se pueden convertir presupuestos aprobados');
-      return;
-    }
-
-    // Navegar a la pantalla de conversión para más opciones
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => QuoteConversionScreen(quoteId: _quote!.id),
-      ),
-    );
+  Future<void> _updateQuoteStatus(String status) async {
+    setState(() {
+      _isProcessing = true;
+    });
     
-    if (result == true) {
-      // Si la conversión fue exitosa, volver a la pantalla anterior
-      Navigator.of(context).pop(true);
+    try {
+      await _quoteService.updateQuoteStatus(_quote!.id, status);
+      _showSuccessSnackBar('Quote status updated successfully');
+      _refreshQuoteDetails();
+    } catch (e) {
+      _showErrorSnackBar('Failed to update quote status: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+  }
+
+  Future<void> _convertToSale() async {
+    setState(() {
+      _isProcessing = true;
+    });
+    
+    try {
+      await _quoteService.convertToSale(_quote!.id);
+      _showSuccessSnackBar('Quote converted to sale successfully');
+      _refreshQuoteDetails();
+    } catch (e) {
+      _showErrorSnackBar('Failed to convert quote to sale: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_quote == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Quote Details'),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : const Center(child: Text('Quote not found')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Presupuesto #${widget.quoteId}'),
+        title: Text('Quote #${_quote!.id.substring(0, 8)}'),
         actions: [
-          if (_quote != null && _quote!.status != QuoteStatus.draft) ...[            
+          if (_quote!.status == QuoteStatus.PENDING)
             IconButton(
-              icon: const Icon(Icons.print),
-              tooltip: 'Imprimir presupuesto',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => QuoteTemplateScreen(quoteId: _quote!.id),
-                  ),
-                );
-              },
+              icon: const Icon(Icons.edit),
+              onPressed: () => _navigateToEditQuote(),
             ),
-            IconButton(
-              icon: const Icon(Icons.share),
-              tooltip: 'Compartir presupuesto',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => QuoteShareScreen(quoteId: _quote!.id),
-                  ),
-                );
-              },
-            ),
-          ],
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'edit') {
-                final result = await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => QuoteFormScreen(quoteId: widget.quoteId),
-                  ),
-                );
-                if (result == true) {
-                  _loadQuote();
-                }
-              } else if (value == 'delete') {
-                _showDeleteConfirmationDialog();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit),
-                    SizedBox(width: 8),
-                    Text('Editar'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Eliminar', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _quote == null
-              ? const Center(child: Text('No se encontró el presupuesto'))
-              : _buildQuoteDetails(),
-      bottomNavigationBar: _quote == null
-          ? null
-          : BottomAppBar(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    if (_quote!.status == QuoteStatus.draft || _quote!.status == QuoteStatus.pending)
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.email),
-                        label: const Text('Email'),
-                        onPressed: _sendQuoteByEmail,
-                      ),
-                    if (_quote!.status == QuoteStatus.draft || _quote!.status == QuoteStatus.pending)
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.message),
-                        label: const Text('WhatsApp'),
-                        onPressed: _sendQuoteByWhatsApp,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    if (_quote!.status == QuoteStatus.approved)
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.build),
-                        label: const Text('Convertir'),
-                        onPressed: _convertToRepairOrder,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                  ],
-                ),
+          : RefreshIndicator(
+              onRefresh: _refreshQuoteDetails,
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildStatusCard(),
+                        const SizedBox(height: 16.0),
+                        if (_quote!.customer != null) _buildCustomerInfoCard(),
+                        const SizedBox(height: 16.0),
+                        _buildQuoteDetailsCard(),
+                        const SizedBox(height: 16.0),
+                        _buildItemsCard(),
+                        const SizedBox(height: 80.0), // Space for bottom buttons
+                      ],
+                    ),
+                  ),
+                  if (_quote!.status == QuoteStatus.PENDING)
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: _buildActionButtons(),
+                    ),
+                ],
               ),
             ),
     );
   }
+  
+  Widget _buildStatusCard() {
+    Color statusColor;
+    switch (_quote!.status) {
+      case QuoteStatus.APPROVED:
+        statusColor = Colors.green;
+        break;
+      case QuoteStatus.REJECTED:
+        statusColor = Colors.red;
+        break;
+      case QuoteStatus.EXPIRED:
+        statusColor = Colors.grey;
+        break;
+      case QuoteStatus.PENDING:
+      default:
+        statusColor = Colors.orange;
+        break;
+    }
 
-  Widget _buildQuoteDetails() {
-    final dateFormat = DateFormat('dd/MM/yyyy');
-    final currencyFormat = NumberFormat.currency(locale: 'es_ES', symbol: '€');
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Información General',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(_quote!.status),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          _getStatusText(_quote!.status),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(),
-                  _buildInfoRow('Cliente', _quote!.repairOrder.customer.name),
-                  _buildInfoRow('Dispositivo', '${_quote!.repairOrder.deviceType} - ${_quote!.repairOrder.brand} ${_quote!.repairOrder.model}'),
-                  _buildInfoRow('Fecha de creación', dateFormat.format(_quote!.createdAt)),
-                  _buildInfoRow('Válido hasta', dateFormat.format(_quote!.validUntil)),
-                  _buildInfoRow('Creado por', _quote!.createdBy.name),
-                  if (_quote!.notes != null && _quote!.notes!.isNotEmpty)
-                    _buildInfoRow('Notas', _quote!.notes!),
-                ],
+    return Card(
+      elevation: 2.0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: BorderRadius.circular(16),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Detalles del Presupuesto',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Divider(),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _quote!.items.length,
-                    itemBuilder: (context, index) {
-                      final item = _quote!.items[index];
-                      return ListTile(
-                        title: Text(item.description),
-                        subtitle: Text(
-                          item.isLabor ? 'Mano de obra' : 'Repuesto',
-                          style: TextStyle(
-                            color: item.isLabor ? Colors.blue : Colors.green,
-                            fontSize: 12,
-                          ),
-                        ),
-                        trailing: Text(
-                          '${item.quantity} x ${currencyFormat.format(item.price)} = ${currencyFormat.format(item.total)}',
-                        ),
-                      );
-                    },
-                  ),
-                  const Divider(),
-                  _buildPriceRow('Subtotal', currencyFormat.format(_quote!.subtotal)),
-                  if (_quote!.discount != null && _quote!.discount! > 0)
-                    _buildPriceRow(
-                      'Descuento (${_quote!.discount}%)',
-                      '- ${currencyFormat.format(_quote!.discountAmount)}',
-                    ),
-                  if (_quote!.tax != null && _quote!.tax! > 0)
-                    _buildPriceRow(
-                      'Impuestos (${_quote!.tax}%)',
-                      '+ ${currencyFormat.format(_quote!.taxAmount)}',
-                    ),
-                  const Divider(),
-                  _buildPriceRow(
-                    'Total',
-                    currencyFormat.format(_quote!.total),
-                    isTotal: true,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (_quote!.status == QuoteStatus.pending)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Acciones',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const Divider(),
-                    const Text(
-                      'Actualizar estado del presupuesto:',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.check_circle),
-                          label: const Text('Aprobar'),
-                          onPressed: () => _updateQuoteStatus(QuoteStatus.approved),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.cancel),
-                          label: const Text('Rechazar'),
-                          onPressed: () => _updateQuoteStatus(QuoteStatus.rejected),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+              child: Text(
+                _quote!.status,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-        ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Created: ${DateFormat('MMM dd, yyyy').format(_quote!.createdAt)}',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Updated: ${DateFormat('MMM dd, yyyy').format(_quote!.updatedAt)}',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-
+  
+  Widget _buildCustomerInfoCard() {
+    return Card(
+      elevation: 2.0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Customer Information',
+              style: TextStyle(
+                fontSize: 18.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Divider(),
+            _buildInfoRow('Name', _quote!.customer!.name),
+            _buildInfoRow('Phone', _quote!.customer!.phone),
+            if (_quote!.customer!.email != null && _quote!.customer!.email!.isNotEmpty)
+              _buildInfoRow('Email', _quote!.customer!.email!),
+            if (_quote!.customer!.address != null && _quote!.customer!.address!.isNotEmpty)
+              _buildInfoRow('Address', _quote!.customer!.address!),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildQuoteDetailsCard() {
+    return Card(
+      elevation: 2.0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Quote Details',
+              style: TextStyle(
+                fontSize: 18.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Divider(),
+            _buildInfoRow('Quote ID', _quote!.id),
+            _buildInfoRow('Repair Order ID', _quote!.repairOrderId),
+            if (_quote!.technician != null)
+              _buildInfoRow('Technician', _quote!.technician!.firstName),
+            _buildInfoRow('Total Amount', '\$${_quote!.totalAmount.toStringAsFixed(2)}'),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildItemsCard() {
+    return Card(
+      elevation: 2.0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Items',
+              style: TextStyle(
+                fontSize: 18.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Divider(),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _quote!.items.length,
+              itemBuilder: (context, index) {
+                final item = _quote!.items[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${item.quantity}x', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item.description, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              item.isLabor ? 'Labor' : 'Part',
+                              style: TextStyle(
+                                color: item.isLabor ? Colors.blue : Colors.green,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('\$${item.price.toStringAsFixed(2)}'),
+                          Text(
+                            '\$${item.total.toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const Divider(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Text(
+                  'Total:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '\$${_quote!.totalAmount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -432,10 +373,12 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 100,
             child: Text(
               '$label:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           Expanded(
@@ -445,25 +388,61 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
       ),
     );
   }
-
-  Widget _buildPriceRow(String label, String value, {bool isTotal = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+  
+  Widget _buildActionButtons() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              fontSize: isTotal ? 18 : 16,
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _isProcessing ? null : () => _updateQuoteStatus(QuoteStatus.APPROVED),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: _isProcessing
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Approve'),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              fontSize: isTotal ? 18 : 16,
+          const SizedBox(width: 16),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _isProcessing ? null : () => _updateQuoteStatus(QuoteStatus.REJECTED),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text('Reject'),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _isProcessing ? null : _convertToSale,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text('Convert to Sale'),
             ),
           ),
         ],
@@ -471,48 +450,16 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
     );
   }
   
-  void _showDeleteConfirmationDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar eliminación'),
-        content: const Text('¿Está seguro de que desea eliminar este presupuesto? Esta acción no se puede deshacer.'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await _deleteQuote();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Eliminar'),
-          ),
-        ],
+  void _navigateToEditQuote() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuoteFormScreen(quote: _quote),
       ),
     );
-  }
-
-  Future<void> _deleteQuote() async {
-    if (_quote == null) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await _quoteService.deleteQuote(_quote!.id);
-      _showSuccessSnackBar('Presupuesto eliminado correctamente');
-      Navigator.of(context).pop(true); // Volver a la pantalla anterior con resultado exitoso
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorSnackBar('Error al eliminar el presupuesto: ${e.toString()}');
+    
+    if (result == true) {
+      _refreshQuoteDetails();
     }
-  } // End of _QuoteDetailScreenState class
+  }
 }

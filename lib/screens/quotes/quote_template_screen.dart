@@ -9,7 +9,7 @@ import 'package:electro_workshop/models/quote.dart';
 import 'package:electro_workshop/services/quote_service.dart';
 
 class QuoteTemplateScreen extends StatefulWidget {
-  final int quoteId;
+  final String quoteId;
 
   const QuoteTemplateScreen({super.key, required this.quoteId});
 
@@ -183,18 +183,16 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
                           style: pw.TextStyle(font: boldFont, fontSize: 14)),
                       pw.Text('Fecha: ${dateFormat.format(_quote!.createdAt)}',
                           style: pw.TextStyle(font: regularFont, fontSize: 12)),
-                      pw.Text('Válido hasta: ${dateFormat.format(_quote!.validUntil)}',
-                          style: pw.TextStyle(font: regularFont, fontSize: 12)),
                     ],
                   ),
                   pw.Container(
                     padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: pw.BoxDecoration(
-                      color: _getStatusPdfColor(_quote!.status),
+                      color: _getStatusPdfColor(_quote!.status as QuoteStatus),
                       borderRadius: pw.BorderRadius.circular(5),
                     ),
                     child: pw.Text(
-                      _getStatusText(_quote!.status),
+                      _getStatusText(_quote!.status as QuoteStatus),
                       style: pw.TextStyle(font: boldFont, fontSize: 12, color: PdfColors.white),
                     ),
                   ),
@@ -222,9 +220,9 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            _buildPdfInfoRow('Nombre', _quote!.repairOrder.customer.name, regularFont, boldFont),
-                            _buildPdfInfoRow('Teléfono', _quote!.repairOrder.customer.phone, regularFont, boldFont),
-                            _buildPdfInfoRow('Email', _quote!.repairOrder.customer.email, regularFont, boldFont),
+                            _buildPdfInfoRow('Nombre', _quote!.repairOrder!.customer!.name, regularFont, boldFont),
+                            _buildPdfInfoRow('Teléfono', _quote!.repairOrder!.customer!.phone, regularFont, boldFont),
+                            _buildPdfInfoRow('Email', _quote!.repairOrder!.customer!.email ?? 'N/A', regularFont, boldFont),
                           ],
                         ),
                       ),
@@ -232,10 +230,21 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            _buildPdfInfoRow('Dispositivo', _quote!.repairOrder.deviceType, regularFont, boldFont),
-                            _buildPdfInfoRow('Marca', _quote!.repairOrder.brand, regularFont, boldFont),
-                            _buildPdfInfoRow('Modelo', _quote!.repairOrder.model, regularFont, boldFont),
-                            _buildPdfInfoRow('Nº Serie', _quote!.repairOrder.serialNumber ?? 'N/A', regularFont, boldFont),
+                            pw.Text('DISPOSITIVOS',
+                                style: pw.TextStyle(font: boldFont, fontSize: 12, color: pdfPrimaryColor)),
+                            pw.SizedBox(height: 5),
+                            // Display multiple devices from repair order items
+                            if (_quote!.repairOrder?.items != null && _quote!.repairOrder!.items.isNotEmpty)
+                              ...List.generate(_quote!.repairOrder!.items.length, (index) {
+                                final device = _quote!.repairOrder!.items[index];
+                                return pw.Text(
+                                  '• ${device.deviceType ?? 'N/A'} ${device.brand ?? ''} ${device.model ?? ''}',
+                                  style: pw.TextStyle(font: regularFont, fontSize: 10),
+                                );
+                              })
+                            else
+                              pw.Text('No hay dispositivos disponibles',
+                                  style: pw.TextStyle(font: regularFont, fontSize: 10)),
                           ],
                         ),
                       ),
@@ -293,25 +302,10 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  _buildPdfPriceRow('Subtotal', currencyFormat.format(_quote!.subtotal), regularFont, boldFont),
-                  if (_quote!.discount != null && _quote!.discount! > 0)
-                    _buildPdfPriceRow(
-                      'Descuento (${_quote!.discount}%)',
-                      '- ${currencyFormat.format(_quote!.discountAmount)}',
-                      regularFont,
-                      boldFont,
-                    ),
-                  if (_quote!.tax != null && _quote!.tax! > 0)
-                    _buildPdfPriceRow(
-                      'Impuestos (${_quote!.tax}%)',
-                      '+ ${currencyFormat.format(_quote!.taxAmount)}',
-                      regularFont,
-                      boldFont,
-                    ),
                   pw.Divider(color: PdfColors.grey300),
                   _buildPdfPriceRow(
                     'TOTAL',
-                    currencyFormat.format(_quote!.total),
+                    currencyFormat.format(_quote!.totalAmount),
                     boldFont,
                     boldFont,
                     fontSize: 14,
@@ -320,30 +314,6 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
               ),
             ),
             pw.SizedBox(height: 20),
-
-            // Notas
-            if (_quote!.notes != null && _quote!.notes!.isNotEmpty) ...[              
-              pw.Container(
-                padding: const pw.EdgeInsets.all(10),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
-                  borderRadius: pw.BorderRadius.circular(5),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('NOTAS',
-                        style: pw.TextStyle(font: boldFont, fontSize: 12, color: pdfPrimaryColor)),
-                    pw.SizedBox(height: 5),
-                    pw.Text(_quote!.notes!,
-                        style: pw.TextStyle(font: regularFont, fontSize: 10)),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 20),
-            ],
-
-            // Condiciones
             pw.Container(
               padding: const pw.EdgeInsets.all(10),
               decoration: pw.BoxDecoration(
@@ -359,9 +329,9 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
                   pw.Text(
                     '1. Este presupuesto es válido hasta la fecha indicada.\n'
                     '2. Los precios incluyen IVA.\n'
-                    '3. El tiempo estimado de reparación es de 3-5 días laborables.\n'
+                    '3. El tiempo estimado de reparación es de 3-7 días laborables.\n'
                     '4. La garantía de la reparación es de 3 meses.\n'
-                    '5. El pago se realizará al recoger el dispositivo.\n',
+                    '5. El pago se realizará al 50% para iniciar la reparación y el restante al recoger el dispositivo.\n',
                     style: pw.TextStyle(font: regularFont, fontSize: 10),
                   ),
                 ],
@@ -457,10 +427,10 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
                   pw.Text('DATOS DEL CLIENTE',
                       style: pw.TextStyle(font: boldFont, fontSize: 16, color: pdfPrimaryColor)),
                   pw.SizedBox(height: 10),
-                  _buildPdfInfoRow('Nombre', _quote!.repairOrder.customer.name, regularFont, boldFont),
-                  _buildPdfInfoRow('Teléfono', _quote!.repairOrder.customer.phone, regularFont, boldFont),
-                  _buildPdfInfoRow('Email', _quote!.repairOrder.customer.email, regularFont, boldFont),
-                  _buildPdfInfoRow('Dirección', _quote!.repairOrder.customer.address ?? 'N/A', regularFont, boldFont),
+                  _buildPdfInfoRow('Nombre', _quote!.customer?.name ?? 'N/A', regularFont, boldFont),
+                  _buildPdfInfoRow('Teléfono', _quote!.customer?.phone ?? 'N/A', regularFont, boldFont),
+                  _buildPdfInfoRow('Email', _quote!.customer?.email ?? 'N/A', regularFont, boldFont),
+                  _buildPdfInfoRow('Dirección', _quote!.customer?.address ?? 'N/A', regularFont, boldFont),
                 ],
               ),
             ),
@@ -476,15 +446,34 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('DATOS DEL DISPOSITIVO',
+                  pw.Text('DATOS DE DISPOSITIVOS',
                       style: pw.TextStyle(font: boldFont, fontSize: 16, color: pdfPrimaryColor)),
                   pw.SizedBox(height: 10),
-                  _buildPdfInfoRow('Tipo', _quote!.repairOrder.deviceType, regularFont, boldFont),
-                  _buildPdfInfoRow('Marca', _quote!.repairOrder.brand, regularFont, boldFont),
-                  _buildPdfInfoRow('Modelo', _quote!.repairOrder.model, regularFont, boldFont),
-                  _buildPdfInfoRow('Nº Serie', _quote!.repairOrder.serialNumber ?? 'N/A', regularFont, boldFont),
-                  _buildPdfInfoRow('Estado', _quote!.repairOrder.condition ?? 'N/A', regularFont, boldFont),
-                  _buildPdfInfoRow('Problema', _quote!.repairOrder.issue, regularFont, boldFont),
+                  
+                  // Display multiple devices from repair order items
+                  if (_quote!.repairOrder?.items != null && _quote!.repairOrder!.items.isNotEmpty)
+                    ...List.generate(_quote!.repairOrder!.items.length, (index) {
+                      final device = _quote!.repairOrder!.items[index];
+                      return pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          if (index > 0) pw.SizedBox(height: 10),
+                          pw.Text(
+                            'Dispositivo ${index + 1}:',
+                            style: pw.TextStyle(font: boldFont, fontSize: 12, color: pdfPrimaryColor),
+                          ),
+                          _buildPdfInfoRow('Tipo', device.deviceType ?? 'N/A', regularFont, boldFont),
+                          _buildPdfInfoRow('Marca', device.brand ?? 'N/A', regularFont, boldFont),
+                          _buildPdfInfoRow('Modelo', device.model ?? 'N/A', regularFont, boldFont),
+                          _buildPdfInfoRow('Nº Serie', device.serialNumber ?? 'N/A', regularFont, boldFont),
+                          if (device.problemDescription != null && device.problemDescription.isNotEmpty)
+                            _buildPdfInfoRow('Problema', device.problemDescription, regularFont, boldFont),
+                        ],
+                      );
+                    })
+                  else
+                    pw.Text('No hay dispositivos disponibles',
+                        style: pw.TextStyle(font: regularFont, fontSize: 12)),
                 ],
               ),
             ),
@@ -546,25 +535,11 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
-                        _buildPdfPriceRow('Subtotal', currencyFormat.format(_quote!.subtotal), regularFont, boldFont),
-                        if (_quote!.discount != null && _quote!.discount! > 0)
-                          _buildPdfPriceRow(
-                            'Descuento (${_quote!.discount}%)',
-                            '- ${currencyFormat.format(_quote!.discountAmount)}',
-                            regularFont,
-                            boldFont,
-                          ),
-                        if (_quote!.tax != null && _quote!.tax! > 0)
-                          _buildPdfPriceRow(
-                            'Impuestos (${_quote!.tax}%)',
-                            '+ ${currencyFormat.format(_quote!.taxAmount)}',
-                            regularFont,
-                            boldFont,
-                          ),
+                        
                         pw.Divider(color: PdfColors.grey300),
                         _buildPdfPriceRow(
                           'TOTAL',
-                          currencyFormat.format(_quote!.total),
+                          currencyFormat.format(_quote!.totalAmount),
                           boldFont,
                           boldFont,
                           fontSize: 16,
@@ -576,29 +551,6 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
               ),
             ),
             pw.SizedBox(height: 20),
-            
-            // Notas
-            if (_quote!.notes != null && _quote!.notes!.isNotEmpty) ...[              
-              pw.Container(
-                padding: const pw.EdgeInsets.all(15),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
-                  borderRadius: pw.BorderRadius.circular(10),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('NOTAS',
-                        style: pw.TextStyle(font: boldFont, fontSize: 14, color: pdfPrimaryColor)),
-                    pw.SizedBox(height: 10),
-                    pw.Text(_quote!.notes!,
-                        style: pw.TextStyle(font: regularFont, fontSize: 12)),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 20),
-            ],
-            
             // Condiciones y firma
             pw.Container(
               padding: const pw.EdgeInsets.all(15),
@@ -613,11 +565,9 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
                       style: pw.TextStyle(font: boldFont, fontSize: 14, color: pdfPrimaryColor)),
                   pw.SizedBox(height: 10),
                   pw.Text(
-                    '1. Este presupuesto es válido hasta el ${dateFormat.format(_quote!.validUntil)}.\n'
-                    '2. Los precios incluyen IVA.\n'
                     '3. El tiempo estimado de reparación es de 3-5 días laborables una vez aprobado el presupuesto.\n'
                     '4. La garantía de la reparación es de 3 meses.\n'
-                    '5. El pago se realizará al recoger el dispositivo.\n'
+                    '5. El pago se realizará un 50% para iniciar y el resto al recoger el dispositivo.\n'
                     '6. La aprobación de este presupuesto implica la aceptación de estas condiciones.\n',
                     style: pw.TextStyle(font: regularFont, fontSize: 10),
                   ),
@@ -710,26 +660,25 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
                           style: pw.TextStyle(font: boldFont, fontSize: 12)),
                       pw.Text('Fecha: ${dateFormat.format(_quote!.createdAt)}',
                           style: pw.TextStyle(font: regularFont, fontSize: 10)),
-                      pw.Text('Válido hasta: ${dateFormat.format(_quote!.validUntil)}',
-                          style: pw.TextStyle(font: regularFont, fontSize: 10)),
+                      
                     ],
                   ),
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
-                      pw.Text('Electro Workshop S.L.',
+                      pw.Text('Electrónica Pimentel',
                           style: pw.TextStyle(font: boldFont, fontSize: 14)),
-                      pw.Text('Tel: +34 912 345 678',
+                      pw.Text('Tel: +51 928 520 320',
                           style: pw.TextStyle(font: regularFont, fontSize: 10)),
                       pw.Container(
                         padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         margin: const pw.EdgeInsets.only(top: 5),
                         decoration: pw.BoxDecoration(
-                          color: _getStatusPdfColor(_quote!.status),
+                          color: _getStatusPdfColor(_quote!.status as QuoteStatus),
                           borderRadius: pw.BorderRadius.circular(4),
                         ),
                         child: pw.Text(
-                          _getStatusText(_quote!.status),
+                          _getStatusText(_quote!.status as QuoteStatus),
                           style: pw.TextStyle(font: boldFont, fontSize: 10, color: PdfColors.white),
                         ),
                       ),
@@ -752,9 +701,9 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
                         pw.Text('CLIENTE',
                             style: pw.TextStyle(font: boldFont, fontSize: 12, color: pdfPrimaryColor)),
                         pw.SizedBox(height: 5),
-                        pw.Text(_quote!.repairOrder.customer.name,
+                        pw.Text(_quote!.customer!.name,
                             style: pw.TextStyle(font: regularFont, fontSize: 10)),
-                        pw.Text(_quote!.repairOrder.customer.phone,
+                        pw.Text(_quote!.customer!.phone,
                             style: pw.TextStyle(font: regularFont, fontSize: 10)),
                       ],
                     ),
@@ -763,13 +712,21 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('DISPOSITIVO',
+                        pw.Text('DISPOSITIVOS',
                             style: pw.TextStyle(font: boldFont, fontSize: 12, color: pdfPrimaryColor)),
                         pw.SizedBox(height: 5),
-                        pw.Text('${_quote!.repairOrder.brand} ${_quote!.repairOrder.model}',
-                            style: pw.TextStyle(font: regularFont, fontSize: 10)),
-                        pw.Text(_quote!.repairOrder.deviceType,
-                            style: pw.TextStyle(font: regularFont, fontSize: 10)),
+                        // Display multiple devices
+                        if (_quote!.repairOrder?.items != null && _quote!.repairOrder!.items.isNotEmpty)
+                          ...List.generate(_quote!.repairOrder!.items.length, (index) {
+                            final device = _quote!.repairOrder!.items[index];
+                            return pw.Text(
+                              '• ${device.deviceType ?? 'N/A'} ${device.brand ?? ''} ${device.model ?? ''}',
+                              style: pw.TextStyle(font: regularFont, fontSize: 10),
+                            );
+                          })
+                        else
+                          pw.Text('No hay dispositivos disponibles',
+                              style: pw.TextStyle(font: regularFont, fontSize: 10)),
                       ],
                     ),
                   ),
@@ -817,43 +774,16 @@ class _QuoteTemplateScreenState extends State<QuoteTemplateScreen> {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  if (_quote!.discount != null && _quote!.discount! > 0)
-                    _buildPdfPriceRow(
-                      'Descuento (${_quote!.discount}%)',
-                      '- ${currencyFormat.format(_quote!.discountAmount)}',
-                      regularFont,
-                      boldFont,
-                    ),
-                  if (_quote!.tax != null && _quote!.tax! > 0)
-                    _buildPdfPriceRow(
-                      'Impuestos (${_quote!.tax}%)',
-                      '+ ${currencyFormat.format(_quote!.taxAmount)}',
-                      regularFont,
-                      boldFont,
-                    ),
                   pw.Divider(color: PdfColors.grey300),
                   _buildPdfPriceRow(
                     'TOTAL',
-                    currencyFormat.format(_quote!.total),
+                    currencyFormat.format(_quote!.totalAmount),
                     boldFont,
                     boldFont,
                     fontSize: 14,
                   ),
                 ],
               ),
-            ),
-            pw.SizedBox(height: 20),
-
-            // Notas y condiciones simplificadas
-            if (_quote!.notes != null && _quote!.notes!.isNotEmpty) ...[              
-              pw.Text(_quote!.notes!,
-                  style: pw.TextStyle(font: regularFont, fontSize: 10, fontStyle: pw.FontStyle.italic)),
-              pw.SizedBox(height: 10),
-            ],
-
-            pw.Text(
-              'Este presupuesto es válido hasta el ${dateFormat.format(_quote!.validUntil)}. Los precios incluyen IVA.',
-              style: pw.TextStyle(font: regularFont, fontSize: 10),
             ),
           ],
         ),
@@ -865,15 +795,13 @@ return pdf;
 
 String _getStatusText(QuoteStatus status) {
   switch (status) {
-    case QuoteStatus.draft:
-      return 'Borrador';
-    case QuoteStatus.pending:
+    case QuoteStatus.PENDING:
       return 'Pendiente';
-    case QuoteStatus.approved:
+    case QuoteStatus.APPROVED:
       return 'Aprobado';
-    case QuoteStatus.rejected:
+    case QuoteStatus.REJECTED:
       return 'Rechazado';
-    case QuoteStatus.expired:
+    case QuoteStatus.EXPIRED:
       return 'Expirado';
     default:
       return 'Desconocido';
@@ -882,15 +810,14 @@ String _getStatusText(QuoteStatus status) {
 
 PdfColor _getStatusPdfColor(QuoteStatus status) {
   switch (status) {
-    case QuoteStatus.draft:
-      return PdfColors.grey;
-    case QuoteStatus.pending:
+    // ignore: constant_pattern_never_matches_value_type
+    case QuoteStatus.PENDING:
       return PdfColors.orange;
-    case QuoteStatus.approved:
+    case QuoteStatus.APPROVED:
       return PdfColors.green;
-    case QuoteStatus.rejected:
+    case QuoteStatus.REJECTED:
       return PdfColors.red;
-    case QuoteStatus.expired:
+    case QuoteStatus.EXPIRED:
       return PdfColors.purple;
     default:
       return PdfColors.grey;

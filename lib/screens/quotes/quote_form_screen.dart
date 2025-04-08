@@ -1,97 +1,170 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:intl/intl.dart';
 import 'package:electro_workshop/models/quote.dart';
-import 'package:electro_workshop/models/repair_order.dart';
+import 'package:electro_workshop/models/customer.dart';
 import 'package:electro_workshop/models/user.dart';
+import 'package:electro_workshop/models/repair_order.dart';
 import 'package:electro_workshop/services/quote_service.dart';
+import 'package:electro_workshop/services/customer_service.dart';
+import 'package:electro_workshop/services/user_service.dart';
 import 'package:electro_workshop/services/repair_service.dart';
-
 class QuoteFormScreen extends StatefulWidget {
-  final int? quoteId;
-  final int? repairOrderId;
+  final Quote? quote;
+  final String? repairOrderId;
 
-  const QuoteFormScreen({super.key, this.quoteId, this.repairOrderId});
+  const QuoteFormScreen({Key? key, this.quote, this.repairOrderId}) : super(key: key);
 
   @override
-  State<QuoteFormScreen> createState() => _QuoteFormScreenState();
+  _QuoteFormScreenState createState() => _QuoteFormScreenState();
 }
 
 class _QuoteFormScreenState extends State<QuoteFormScreen> {
-  final QuoteService _quoteService = GetIt.instance<QuoteService>();
-  final RepairService _repairService = GetIt.instance<RepairService>();
   final _formKey = GlobalKey<FormState>();
-  final _notesController = TextEditingController();
-  final _discountController = TextEditingController();
-  final _taxController = TextEditingController();
-  final _validUntilController = TextEditingController();
-
+  final QuoteService _quoteService = GetIt.instance<QuoteService>();
+  final CustomerService _customerService = GetIt.instance<CustomerService>();
+  final UserService _userService = GetIt.instance<UserService>();
+  final RepairService _repairOrderService = GetIt.instance<RepairService>();
+  
   bool _isLoading = false;
-  bool _isEditMode = false;
-  Quote? _quote;
+  bool _isInitializing = true;
+  bool _isEditing = false;
+  
+  Customer? _selectedCustomer;
+  User? _selectedTechnician;
   RepairOrder? _selectedRepairOrder;
+  List<Customer> _customers = [];
+  List<User> _technicians = [];
   List<RepairOrder> _repairOrders = [];
-  List<QuoteItem> _quoteItems = [];
-  DateTime _validUntil = DateTime.now().add(const Duration(days: 30));
+  List<QuoteItem> _items = [];
+  
+  double _totalAmount = 0;
 
   @override
   void initState() {
     super.initState();
-    _isEditMode = widget.quoteId != null;
-    _loadData();
+    _isEditing = widget.quote != null;
+    _loadInitialData();
   }
 
-  @override
-  void dispose() {
-    _notesController.dispose();
-    _discountController.dispose();
-    _taxController.dispose();
-    _validUntilController.dispose();
-    super.dispose();
+  Future<void> _loadInitialData() async {
+    try {
+      final customersResponse = _customerService.getAllCustomers();
+      final techniciansResponse = _userService.getTechnicians();
+      final repairOrdersResponse = _repairOrderService.getAllRepairOrders();
+      
+      final results = await Future.wait([customersResponse, techniciansResponse, repairOrdersResponse]);
+      
+      setState(() {
+        _customers = results[0] as List<Customer>;
+        _technicians = results[1] as List<User>;
+        _repairOrders = results[2] as List<RepairOrder>;
+        
+        if (_isEditing && widget.quote != null) {
+          _selectedCustomer = widget.quote!.customer;
+          _selectedTechnician = widget.quote!.technician;
+          _selectedRepairOrder = widget.quote!.repairOrder;
+          _items = List.from(widget.quote!.items);
+          _calculateTotal();
+        } else if (widget.repairOrderId != null) {
+          _selectedRepairOrder = _repairOrders.firstWhere(
+            (order) => order.id == widget.repairOrderId,
+            orElse: () => _repairOrders.first,
+          );
+          
+          if (_selectedRepairOrder != null) {
+            _selectedCustomer = _customers.firstWhere(
+              (customer) => customer.id == _selectedRepairOrder!.customerId,
+              orElse: () => _customers.first,
+            );
+          }
+        }
+        
+        _isInitializing = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isInitializing = false;
+      });
+      _showErrorSnackBar('Failed to load initial data: ${e.toString()}');
+    }
   }
 
-  Future<void> _loadData() async {
+  void _calculateTotal() {
+    double total = 0;
+    for (var item in _items) {
+      total += item.total;
+    }
+    
+    setState(() {
+      _totalAmount = total;
+    });
+  }
+
+  Future<void> _saveQuote() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    
+    if (_selectedCustomer == null) {
+      _showErrorSnackBar('Please select a customer');
+      return;
+    }
+    
+    if (_selectedTechnician == null) {
+      _showErrorSnackBar('Please select a technician');
+      return;
+    }
+    
+    if (_selectedRepairOrder == null) {
+      _showErrorSnackBar('Please select a repair order');
+      return;
+    }
+    
+    if (_items.isEmpty) {
+      _showErrorSnackBar('Please add at least one item to the quote');
+      return;
+    }
+    
     setState(() {
       _isLoading = true;
     });
-
+    
     try {
-      // Cargar órdenes de reparación disponibles
-      final repairOrders = await _repairService.getAllRepairOrders();
-      setState(() {
-        _repairOrders = repairOrders;
-      });
-
-      // Si estamos editando un presupuesto existente
-      if (_isEditMode && widget.quoteId != null) {
-        final quote = await _quoteService.getQuoteById(widget.quoteId!);
-        setState(() {
-          _quote = quote;
-          _selectedRepairOrder = quote.repairOrder;
-          _quoteItems = List.from(quote.items);
-          _notesController.text = quote.notes ?? '';
-          _discountController.text = quote.discount?.toString() ?? '';
-          _taxController.text = quote.tax?.toString() ?? '';
-          _validUntil = quote.validUntil;
-          _validUntilController.text = DateFormat('dd/MM/yyyy').format(quote.validUntil);
-        });
-      } 
-      // Si estamos creando un presupuesto desde una orden de reparación
-      else if (widget.repairOrderId != null) {
-        final repairOrder = await _repairService.getRepairOrderById(widget.repairOrderId!);
-        setState(() {
-          _selectedRepairOrder = repairOrder;
-          _validUntilController.text = DateFormat('dd/MM/yyyy').format(_validUntil);
-        });
+      final now = DateTime.now();
+      
+      // Create a new Quote object with the form data
+      final Quote quote = Quote(
+        id: _isEditing ? widget.quote!.id : '',
+        repairOrderId: _selectedRepairOrder!.id,
+        customerId: _selectedCustomer!.id,
+        technicianId: _selectedTechnician!.id,
+        status: _isEditing ? widget.quote!.status : QuoteStatus.PENDING,
+        totalAmount: _totalAmount,
+        createdAt: _isEditing ? widget.quote!.createdAt : now,
+        updatedAt: now,
+        items: _items,
+        repairOrder: _selectedRepairOrder,
+        customer: _selectedCustomer,
+        technician: _selectedTechnician,
+      );
+      
+      if (_isEditing) {
+        await _quoteService.updateQuote(quote);
       } else {
-        _validUntilController.text = DateFormat('dd/MM/yyyy').format(_validUntil);
+        await _quoteService.createQuote(quote);
+      }
+      
+      if (mounted) {
+        Navigator.pop(context, true);  // Return true to indicate success
       }
     } catch (e) {
-      _showErrorSnackBar('Error al cargar los datos: ${e.toString()}');
+      _showErrorSnackBar('Failed to save quote: ${e.toString()}');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -104,407 +177,327 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
     );
   }
 
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  void _addItem() {
+    showModalBottomSheet(
       context: context,
-      initialDate: _validUntil,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null && picked != _validUntil) {
-      setState(() {
-        _validUntil = picked;
-        _validUntilController.text = DateFormat('dd/MM/yyyy').format(picked);
-      });
-    }
-  }
-
-  void _addQuoteItem() {
-    showDialog(
-      context: context,
-      builder: (context) => _QuoteItemDialog(
+      isScrollControlled: true,
+      builder: (context) => _AddItemBottomSheet(
         onItemAdded: (item) {
           setState(() {
-            _quoteItems.add(item);
+            _items.add(item);
+            _calculateTotal();
           });
         },
       ),
     );
   }
 
-  void _editQuoteItem(int index) {
-    showDialog(
+  void _editItem(int index) {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => _QuoteItemDialog(
-        initialItem: _quoteItems[index],
+      isScrollControlled: true,
+      builder: (context) => _AddItemBottomSheet(
+        initialItem: _items[index],
         onItemAdded: (item) {
           setState(() {
-            _quoteItems[index] = item;
+            _items[index] = item;
+            _calculateTotal();
           });
         },
       ),
     );
   }
 
-  void _removeQuoteItem(int index) {
+  void _removeItem(int index) {
     setState(() {
-      _quoteItems.removeAt(index);
+      _items.removeAt(index);
+      _calculateTotal();
     });
-  }
-
-  double _calculateSubtotal() {
-    return _quoteItems.fold(0, (sum, item) => sum + (item.price * item.quantity));
-  }
-
-  double _calculateDiscount() {
-    final discount = double.tryParse(_discountController.text) ?? 0;
-    return _calculateSubtotal() * (discount / 100);
-  }
-
-  double _calculateTax() {
-    final tax = double.tryParse(_taxController.text) ?? 0;
-    return (_calculateSubtotal() - _calculateDiscount()) * (tax / 100);
-  }
-
-  double _calculateTotal() {
-    return _calculateSubtotal() - _calculateDiscount() + _calculateTax();
-  }
-
-  Future<void> _saveQuote() async {
-    if (_formKey.currentState!.validate()) {
-      if (_selectedRepairOrder == null) {
-        _showErrorSnackBar('Debe seleccionar una orden de reparación');
-        return;
-      }
-
-      if (_quoteItems.isEmpty) {
-        _showErrorSnackBar('Debe agregar al menos un ítem al presupuesto');
-        return;
-      }
-
-      setState(() {
-        _isLoading = true;
-      });
-
-      try {
-        // Crear un usuario ficticio para el ejemplo (en una app real, sería el usuario actual)
-        final currentUser = User(id: 1, name: 'Admin', email: 'admin@example.com', role: UserRole.admin, phone: '');
-
-        // Crear o actualizar el presupuesto
-        if (_isEditMode && _quote != null) {
-          // Actualizar presupuesto existente
-          final updatedQuote = _quote!.copyWith(
-            repairOrder: _selectedRepairOrder!,
-            items: _quoteItems,
-            notes: _notesController.text.isEmpty ? null : _notesController.text,
-            discount: _discountController.text.isEmpty ? null : double.parse(_discountController.text),
-            tax: _taxController.text.isEmpty ? null : double.parse(_taxController.text),
-            validUntil: _validUntil,
-          );
-
-          await _quoteService.updateQuote(updatedQuote);
-          _showSuccessSnackBar('Presupuesto actualizado correctamente');
-        } else {
-          // Crear nuevo presupuesto
-          final newQuote = Quote(
-            id: 0, // El ID será asignado por el backend
-            repairOrder: _selectedRepairOrder!,
-            items: _quoteItems,
-            status: QuoteStatus.draft,
-            createdAt: DateTime.now(),
-            validUntil: _validUntil,
-            createdBy: currentUser,
-            notes: _notesController.text.isEmpty ? null : _notesController.text,
-            discount: _discountController.text.isEmpty ? null : double.parse(_discountController.text),
-            tax: _taxController.text.isEmpty ? null : double.parse(_taxController.text),
-          );
-
-          await _quoteService.createQuote(newQuote);
-          _showSuccessSnackBar('Presupuesto creado correctamente');
-        }
-
-        // Volver a la pantalla anterior con resultado exitoso
-        if (mounted) {
-          Navigator.of(context).pop(true);
-        }
-      } catch (e) {
-        _showErrorSnackBar('Error al guardar el presupuesto: ${e.toString()}');
-      } finally {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'es_ES', symbol: '€');
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditMode ? 'Editar Presupuesto' : 'Nuevo Presupuesto'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _isLoading ? null : _saveQuote,
-          ),
-        ],
+        title: Text(_isEditing ? 'Edit Quote' : 'Create Quote'),
       ),
-      body: _isLoading
+      body: _isInitializing
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Información General',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            const Divider(),
-                            DropdownButtonFormField<RepairOrder>(
-                              decoration: const InputDecoration(
-                                labelText: 'Orden de Reparación',
-                                border: OutlineInputBorder(),
-                              ),
-                              value: _selectedRepairOrder,
-                              items: _repairOrders.map((repairOrder) {
-                                return DropdownMenuItem<RepairOrder>(
-                                  value: repairOrder,
-                                  child: Text(
-                                    '#${repairOrder.id} - ${repairOrder.customer.name} - ${repairOrder.deviceType} ${repairOrder.brand} ${repairOrder.model}',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: _isEditMode
-                                  ? null // No permitir cambiar la orden en modo edición
-                                  : (RepairOrder? newValue) {
-                                      setState(() {
-                                        _selectedRepairOrder = newValue;
-                                      });
-                                    },
-                              validator: (value) {
-                                if (value == null) {
-                                  return 'Por favor seleccione una orden de reparación';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _validUntilController,
-                              decoration: InputDecoration(
-                                labelText: 'Válido hasta',
-                                border: const OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.calendar_today),
-                                  onPressed: () => _selectDate(context),
-                                ),
-                              ),
-                              readOnly: true,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Por favor ingrese una fecha de validez';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _notesController,
-                              decoration: const InputDecoration(
-                                labelText: 'Notas',
-                                border: OutlineInputBorder(),
-                              ),
-                              maxLines: 3,
-                            ),
-                          ],
-                        ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSelectionSection(),
+                          const SizedBox(height: 24),
+                          _buildItemsSection(),
+                          const SizedBox(height: 24),
+                          _buildTotalSection(),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Ítems del Presupuesto',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                ),
-                                ElevatedButton.icon(
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Agregar Ítem'),
-                                  onPressed: _addQuoteItem,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Divider(),
-                            _quoteItems.isEmpty
-                                ? const Center(
-                                    child: Padding(
-                                      padding: EdgeInsets.all(16.0),
-                                      child: Text(
-                                        'No hay ítems en el presupuesto',
-                                        style: TextStyle(fontStyle: FontStyle.italic),
-                                      ),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    itemCount: _quoteItems.length,
-                                    itemBuilder: (context, index) {
-                                      final item = _quoteItems[index];
-                                      return ListTile(
-                                        title: Text(item.description),
-                                        subtitle: Text(
-                                          item.isLabor ? 'Mano de obra' : 'Repuesto',
-                                          style: TextStyle(
-                                            color: item.isLabor ? Colors.blue : Colors.green,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              '${item.quantity} x ${currencyFormat.format(item.price)} = ${currencyFormat.format(item.total)}',
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.edit, size: 20),
-                                              onPressed: () => _editQuoteItem(index),
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-                                              onPressed: () => _removeQuoteItem(index),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Resumen',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            const Divider(),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _discountController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Descuento (%)',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    keyboardType: TextInputType.number,
-                                    onChanged: (value) {
-                                      setState(() {});
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _taxController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Impuestos (%)',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    keyboardType: TextInputType.number,
-                                    onChanged: (value) {
-                                      setState(() {});
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            _buildPriceRow('Subtotal', currencyFormat.format(_calculateSubtotal())),
-                            if (_discountController.text.isNotEmpty && double.tryParse(_discountController.text) != null && double.tryParse(_discountController.text)! > 0)
-                              _buildPriceRow(
-                                'Descuento (${_discountController.text}%)',
-                                '- ${currencyFormat.format(_calculateDiscount())}',
-                              ),
-                            if (_taxController.text.isNotEmpty && double.tryParse(_taxController.text) != null && double.tryParse(_taxController.text)! > 0)
-                              _buildPriceRow(
-                                'Impuestos (${_taxController.text}%)',
-                                '+ ${currencyFormat.format(_calculateTax())}',
-                              ),
-                            const Divider(),
-                            _buildPriceRow(
-                              'Total',
-                              currencyFormat.format(_calculateTotal()),
-                              isTotal: true,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  _buildBottomBar(),
+                ],
               ),
             ),
     );
   }
 
-  Widget _buildPriceRow(String label, String value, {bool isTotal = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              fontSize: isTotal ? 18 : 16,
+  Widget _buildSelectionSection() {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Quote Information',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<RepairOrder>(
+              value: _selectedRepairOrder,
+              decoration: const InputDecoration(
+                labelText: 'Repair Order *',
+                border: OutlineInputBorder(),
+              ),
+              items: _repairOrders.map((order) {
+                return DropdownMenuItem<RepairOrder>(
+                  value: order,
+                  child: Text('Order #${order.id.substring(0, 8)} - ${order.description.substring(0, 20)}'),
+                );
+              }).toList(),
+              onChanged: _isEditing ? null : (value) {
+                setState(() {
+                  _selectedRepairOrder = value;
+                  if (value != null) {
+                    _selectedCustomer = _customers.firstWhere(
+                      (customer) => customer.id == value.customerId,
+                      orElse: () => _customers.first,
+                    );
+                  }
+                });
+              },
+              validator: (value) {
+                if (value == null) {
+                  return 'Please select a repair order';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<Customer>(
+              value: _selectedCustomer,
+              decoration: const InputDecoration(
+                labelText: 'Customer *',
+                border: OutlineInputBorder(),
+              ),
+              items: _customers.map((customer) {
+                return DropdownMenuItem<Customer>(
+                  value: customer,
+                  child: Text(customer.name),
+                );
+              }).toList(),
+              onChanged: _isEditing ? null : (value) {
+                setState(() {
+                  _selectedCustomer = value;
+                });
+              },
+              validator: (value) {
+                if (value == null) {
+                  return 'Please select a customer';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<User>(
+              value: _selectedTechnician,
+              decoration: const InputDecoration(
+                labelText: 'Technician *',
+                border: OutlineInputBorder(),
+              ),
+              items: _technicians.map((technician) {
+                return DropdownMenuItem<User>(
+                  value: technician,
+                  child: Text(technician.firstName),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedTechnician = value;
+                });
+              },
+              validator: (value) {
+                if (value == null) {
+                  return 'Please select a technician';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemsSection() {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Items',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Item'),
+                  onPressed: _addItem,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (_items.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No items added yet'),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _items.length,
+                itemBuilder: (context, index) {
+                  final item = _items[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      title: Text(item.description),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${item.quantity} x \$${item.price.toStringAsFixed(2)}'),
+                          Text(
+                            item.isLabor ? 'Labor' : 'Part',
+                            style: TextStyle(
+                              color: item.isLabor ? Colors.blue : Colors.green,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '\$${item.total.toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit, size: 20),
+                            onPressed: () => _editItem(index),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, size: 20),
+                            onPressed: () => _removeItem(index),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTotalSection() {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Total Amount:',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              '\$${_totalAmount.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              fontSize: isTotal ? 18 : 16,
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _saveQuote,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Text(
+                      _isEditing ? 'Update Quote' : 'Create Quote',
+                      style: const TextStyle(fontSize: 16),
+                    ),
             ),
           ),
         ],
@@ -513,156 +506,184 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
   }
 }
 
-class _QuoteItemDialog extends StatefulWidget {
+// Bottom sheet for adding/editing items
+class _AddItemBottomSheet extends StatefulWidget {
   final QuoteItem? initialItem;
   final Function(QuoteItem) onItemAdded;
 
-  const _QuoteItemDialog({
+  const _AddItemBottomSheet({
     this.initialItem,
     required this.onItemAdded,
   });
 
   @override
-  State<_QuoteItemDialog> createState() => _QuoteItemDialogState();
+  _AddItemBottomSheetState createState() => _AddItemBottomSheetState();
 }
 
-class _QuoteItemDialogState extends State<_QuoteItemDialog> {
+class _AddItemBottomSheetState extends State<_AddItemBottomSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _descriptionController = TextEditingController();
-  final _priceController = TextEditingController();
-  final _quantityController = TextEditingController();
+  
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _quantityController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
   bool _isLabor = false;
-
+  
   @override
   void initState() {
     super.initState();
+    
     if (widget.initialItem != null) {
       _descriptionController.text = widget.initialItem!.description;
-      _priceController.text = widget.initialItem!.price.toString();
       _quantityController.text = widget.initialItem!.quantity.toString();
+      _priceController.text = widget.initialItem!.price.toString();
       _isLabor = widget.initialItem!.isLabor;
     } else {
-      _quantityController.text = '1'; // Valor por defecto
+      _quantityController.text = '1';
     }
   }
 
   @override
   void dispose() {
     _descriptionController.dispose();
-    _priceController.dispose();
     _quantityController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
-  void _saveItem() {
-    if (_formKey.currentState!.validate()) {
-      final item = QuoteItem(
-        id: widget.initialItem?.id ?? 0, // El ID será asignado por el backend si es nuevo
-        description: _descriptionController.text,
-        price: double.parse(_priceController.text),
-        quantity: int.parse(_quantityController.text),
-        isLabor: _isLabor,
-      );
-
-      widget.onItemAdded(item);
-      Navigator.of(context).pop();
+  void _addItem() {
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
+    
+    final now = DateTime.now();
+    final item = QuoteItem(
+      id: widget.initialItem?.id ?? '',
+      quoteId: widget.initialItem?.quoteId ?? '',
+      description: _descriptionController.text,
+      quantity: int.parse(_quantityController.text),
+      price: double.parse(_priceController.text),
+      isLabor: _isLabor,
+      createdAt: widget.initialItem?.createdAt ?? now,
+      updatedAt: now,
+    );
+    
+    widget.onItemAdded(item);
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.initialItem == null ? 'Agregar Ítem' : 'Editar Ítem'),
-      content: Form(
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        top: 16,
+        left: 16,
+        right: 16,
+      ),
+      child: Form(
         key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Descripción',
-                  border: OutlineInputBorder(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.initialItem != null ? 'Edit Item' : 'Add Item',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description *',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a description';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _quantityController,
+                    decoration: const InputDecoration(
+                      labelText: 'Quantity *',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Required';
+                      }
+                      final quantity = int.tryParse(value);
+                      if (quantity == null || quantity <= 0) {
+                        return 'Invalid quantity';
+                      }
+                      return null;
+                    },
+                  ),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor ingrese una descripción';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _priceController,
-                decoration: const InputDecoration(
-                  labelText: 'Precio',
-                  border: OutlineInputBorder(),
-                  prefixText: '€ ',
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextFormField(
+                    controller: _priceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Price *',
+                      border: OutlineInputBorder(),
+                      prefixText: '\$',
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Required';
+                      }
+                      final price = double.tryParse(value);
+                      if (price == null || price <= 0) {
+                        return 'Invalid price';
+                      }
+                      return null;
+                    },
+                  ),
                 ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor ingrese un precio';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Por favor ingrese un número válido';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _quantityController,
-                decoration: const InputDecoration(
-                  labelText: 'Cantidad',
-                  border: OutlineInputBorder(),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: const Text('Is Labor'),
+              value: _isLabor,
+              onChanged: (value) {
+                setState(() {
+                  _isLabor = value;
+                });
+              },
+              contentPadding: EdgeInsets.zero,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
                 ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor ingrese una cantidad';
-                  }
-                  if (int.tryParse(value) == null) {
-                    return 'Por favor ingrese un número entero';
-                  }
-                  if (int.parse(value) <= 0) {
-                    return 'La cantidad debe ser mayor a 0';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text('Mano de obra'),
-                value: _isLabor,
-                onChanged: (value) {
-                  setState(() {
-                    _isLabor = value;
-                  });
-                },
-                activeColor: Colors.blue,
-              ),
-            ],
-          ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _addItem,
+                  child: Text(widget.initialItem != null ? 'Update' : 'Add'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
-          onPressed: _saveItem,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Guardar'),
-        ),
-      ],
     );
   }
 }

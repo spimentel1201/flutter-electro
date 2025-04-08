@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:intl/intl.dart';
 import 'package:electro_workshop/models/repair_order.dart';
 import 'package:electro_workshop/services/repair_service.dart';
+import 'package:electro_workshop/screens/repairs/repair_detail_screen.dart';
+import 'package:electro_workshop/screens/repairs/repair_form_screen.dart';
 
 class RepairListScreen extends StatefulWidget {
   const RepairListScreen({super.key});
@@ -15,6 +18,7 @@ class _RepairListScreenState extends State<RepairListScreen> {
   List<RepairOrder>? _repairs;
   bool _isLoading = true;
   String? _errorMessage;
+  final dateFormat = DateFormat('dd/MM/yyyy');
 
   @override
   void initState() {
@@ -29,11 +33,10 @@ class _RepairListScreenState extends State<RepairListScreen> {
         _errorMessage = null;
       });
 
-      // Simulamos carga de datos ya que el servicio aún no está registrado
-      await Future.delayed(const Duration(seconds: 1));
+      final repairs = await _repairService.getAllRepairOrders();
       
       setState(() {
-        _repairs = [];
+        _repairs = repairs;
         _isLoading = false;
       });
     } catch (e) {
@@ -58,13 +61,17 @@ class _RepairListScreenState extends State<RepairListScreen> {
       ),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Función para agregar nueva orden en desarrollo'),
-              duration: Duration(seconds: 2),
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const RepairFormScreen(),
             ),
           );
+          
+          if (result == true) {
+            _loadRepairs();
+          }
         },
         child: const Icon(Icons.add),
       ),
@@ -105,39 +112,108 @@ class _RepairListScreenState extends State<RepairListScreen> {
       );
     }
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.build,
-              size: 80,
-              color: Colors.blue,
+    return ListView.builder(
+      itemCount: _repairs!.length,
+      padding: const EdgeInsets.all(8.0),
+      itemBuilder: (context, index) {
+        final repair = _repairs![index];
+        return Card(
+          elevation: 2,
+          margin: const EdgeInsets.symmetric(vertical: 8.0),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: _getStatusColor(repair.status as RepairOrderStatus),
+              child: Icon(
+                _getStatusIcon(repair.status as RepairOrderStatus),
+                color: Colors.white,
+              ),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Módulo de Órdenes de Reparación',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+            title: Text(
+              '${repair.customer?.name ?? 'Cliente sin nombre'} - ${repair.items.isNotEmpty ? repair.items.first.brand : 'N/A'} ${repair.items.isNotEmpty ? repair.items.first.model : ''}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Esta pantalla mostrará la lista de órdenes de reparación.',
-              style: TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ID: ${repair.id}'),
+                Text('Fecha: ${dateFormat.format(repair.createdAt)}'),
+                Text('Estado: ${_getStatusText(repair.status as RepairOrderStatus)}'),
+              ],
             ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Volver al inicio'),
-            ),
-          ],
-        ),
-      ),
+            isThreeLine: true,
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => RepairDetailScreen(repairId: repair.id),
+                ),
+              );
+              
+              if (result == true) {
+                _loadRepairs();
+              }
+            },
+          ),
+        );
+      },
     );
+  }
+
+  Color _getStatusColor(RepairOrderStatus status) {
+    switch (status) {
+      case RepairOrderStatus.RECEIVED:
+        return Colors.orange;
+      case RepairOrderStatus.IN_PROGRESS:
+        return Colors.blue;
+      case RepairOrderStatus.WAITING_FOR_PARTS:
+        return Colors.yellow;
+      case RepairOrderStatus.COMPLETED:
+        return Colors.green;
+      case RepairOrderStatus.DELIVERED:
+        return Colors.purple;
+      case RepairOrderStatus.CANCELLED:
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(RepairOrderStatus status) {
+    switch (status) {
+      case RepairOrderStatus.RECEIVED:
+        return Icons.hourglass_empty;
+      case RepairOrderStatus.IN_PROGRESS:
+        return Icons.build;
+      case RepairOrderStatus.WAITING_FOR_PARTS:
+        return Icons.pending_actions;
+      case RepairOrderStatus.COMPLETED:
+        return Icons.check_circle;
+      case RepairOrderStatus.DELIVERED:
+        return Icons.delivery_dining;
+      case RepairOrderStatus.CANCELLED:
+        return Icons.cancel;
+      default:
+        return Icons.help;
+    }
+  }
+
+  String _getStatusText(RepairOrderStatus status) {
+    switch (status) {
+      case RepairOrderStatus.RECEIVED:
+        return 'Recibido';
+      case RepairOrderStatus.IN_PROGRESS:
+        return 'En progreso';
+      case RepairOrderStatus.WAITING_FOR_PARTS:
+        return 'Esperando piezas';
+      case RepairOrderStatus.COMPLETED:
+        return 'Completada';
+      case RepairOrderStatus.DELIVERED:
+        return 'Entregada';
+      case RepairOrderStatus.CANCELLED:
+        return 'Cancelada';
+      default:
+        return 'Desconocido';
+    }
   }
 }

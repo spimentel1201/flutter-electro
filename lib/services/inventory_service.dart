@@ -9,7 +9,7 @@ class InventoryService {
   // Get all inventory items
   Future<List<InventoryItem>> getAllItems() async {
     try {
-      final response = await _apiService.get('inventory');
+      final response = await _apiService.get('inventory', queryParams: {});
       return (response as List)
           .map((item) => InventoryItem.fromMap(item))
           .toList();
@@ -21,7 +21,7 @@ class InventoryService {
   // Get inventory items by category
   Future<List<InventoryItem>> getItemsByCategory(String category) async {
     try {
-      final response = await _apiService.get('inventory/category/$category');
+      final response = await _apiService.get('inventory/category/$category', queryParams: {});
       return (response as List)
           .map((item) => InventoryItem.fromMap(item))
           .toList();
@@ -33,7 +33,7 @@ class InventoryService {
   // Get inventory item by ID
   Future<InventoryItem> getItemById(int id) async {
     try {
-      final response = await _apiService.get('inventory/$id');
+      final response = await _apiService.get('inventory/$id', queryParams: {});
       return InventoryItem.fromMap(response);
     } catch (e) {
       throw Exception('Failed to load inventory item: ${e.toString()}');
@@ -84,7 +84,7 @@ class InventoryService {
   // Search inventory items
   Future<List<InventoryItem>> searchItems(String query) async {
     try {
-      final response = await _apiService.get('inventory/search?q=$query');
+      final response = await _apiService.get('inventory/search?q=$query', queryParams: {});
       return (response as List)
           .map((item) => InventoryItem.fromMap(item))
           .toList();

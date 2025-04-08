@@ -9,6 +9,7 @@ import 'package:electro_workshop/services/inventory_service.dart';
 import 'package:electro_workshop/services/product_service.dart';
 import 'package:electro_workshop/services/quote_service.dart';
 import 'package:electro_workshop/services/repair_service.dart';
+import 'package:electro_workshop/services/user_service.dart'; // Add UserService import
 import 'package:electro_workshop/screens/login_screen.dart';
 import 'package:electro_workshop/screens/home_screen.dart';
 
@@ -33,12 +34,18 @@ void setupServiceLocator() {
     () => CustomerService(apiService: getIt<ApiService>()),
   );
   
+  // Fixed QuoteService registration
   getIt.registerLazySingleton<QuoteService>(
-    () => QuoteService(apiService: getIt<ApiService>()),
+    () => QuoteService(),
   );
   
   getIt.registerLazySingleton<RepairService>(
     () => RepairService(apiService: getIt<ApiService>()),
+  );
+  
+  // Add UserService registration
+  getIt.registerLazySingleton<UserService>(
+    () => UserService(apiService: getIt<ApiService>()),
   );
 }
 

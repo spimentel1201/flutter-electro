@@ -9,7 +9,7 @@ class CustomerService {
   // Get all customers
   Future<List<Customer>> getAllCustomers() async {
     try {
-      final response = await _apiService.get('customers');
+      final response = await _apiService.get('customers', queryParams: {});
       return (response as List)
           .map((customer) => Customer.fromJson(customer))
           .toList();
@@ -21,7 +21,7 @@ class CustomerService {
   // Get customer by ID
   Future<Customer> getCustomerById(String id) async {
     try {
-      final response = await _apiService.get('customers/$id');
+      final response = await _apiService.get('customers/$id', queryParams: {});
       return Customer.fromJson(response);
     } catch (e) {
       throw Exception('Failed to load customer: ${e.toString()}');
@@ -31,7 +31,7 @@ class CustomerService {
   // Search customers
   Future<List<Customer>> searchCustomers(String query) async {
     try {
-      final response = await _apiService.get('customers/search?q=$query');
+      final response = await _apiService.get('customers/search?q=$query', queryParams: {});
       return (response as List)
           .map((customer) => Customer.fromJson(customer))
           .toList();
@@ -72,7 +72,7 @@ class CustomerService {
   // Get customer repair history
   Future<List<Map<String, dynamic>>> getCustomerRepairHistory(String customerId) async {
     try {
-      final response = await _apiService.get('customers/$customerId/repairs');
+      final response = await _apiService.get('customers/$customerId/repairs', queryParams: {});
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       throw Exception('Failed to load customer repair history: ${e.toString()}');

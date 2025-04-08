@@ -76,4 +76,39 @@ class RepairOrderItem {
       'updatedAt': updatedAt.toIso8601String(),
     };
   }
+  
+  // Add a copyWith method to the RepairOrderItem class
+  RepairOrderItem copyWith({
+    String? id,
+    String? repairOrderId,
+    String? productId,
+    String? deviceType,
+    String? brand,
+    String? model,
+    String? serialNumber,
+    String? problemDescription,
+    List<String>? accessories,
+    int? quantity,
+    double? price,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Product? product,
+  }) {
+    return RepairOrderItem(
+      id: id ?? this.id,
+      repairOrderId: repairOrderId ?? this.repairOrderId,
+      productId: productId ?? this.productId,
+      deviceType: deviceType ?? this.deviceType,
+      brand: brand ?? this.brand,
+      model: model ?? this.model,
+      serialNumber: serialNumber ?? this.serialNumber,
+      problemDescription: problemDescription ?? this.problemDescription,
+      accessories: accessories ?? this.accessories,
+      quantity: quantity ?? this.quantity,
+      price: price ?? this.price,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      product: product ?? this.product,
+    );
+  }
 }

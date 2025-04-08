@@ -6,7 +6,7 @@ import 'package:electro_workshop/models/quote.dart';
 import 'package:electro_workshop/services/quote_service.dart';
 
 class QuoteShareScreen extends StatefulWidget {
-  final int quoteId;
+  final String quoteId; // Changed from int to String
 
   const QuoteShareScreen({super.key, required this.quoteId});
 
@@ -62,11 +62,10 @@ class _QuoteShareScreenState extends State<QuoteShareScreen> {
     final currencyFormat = NumberFormat.currency(locale: 'es_ES', symbol: '€');
     final dateFormat = DateFormat('dd/MM/yyyy');
 
-    _messageController.text = 'Hola ${_quote!.repairOrder.customer.name}, '
+    _messageController.text = 'Hola ${_quote!.customer?.name ?? "Cliente"}, '
         'le enviamos el presupuesto #${_quote!.id} para la reparación de su '
-        '${_quote!.repairOrder.deviceType} ${_quote!.repairOrder.brand} ${_quote!.repairOrder.model}. '
-        'El total es de ${currencyFormat.format(_quote!.total)}. '
-        'Este presupuesto es válido hasta el ${dateFormat.format(_quote!.validUntil)}. '
+        'dispositivo. '
+        'El total es de ${currencyFormat.format(_quote!.totalAmount)}. '
         'Por favor, responda para aprobar o rechazar el presupuesto.';
   }
 
@@ -76,23 +75,19 @@ class _QuoteShareScreenState extends State<QuoteShareScreen> {
     final currencyFormat = NumberFormat.currency(locale: 'es_ES', symbol: '€');
     final dateFormat = DateFormat('dd/MM/yyyy');
 
-    String message = 'Hola ${_quote!.repairOrder.customer.name}, '
+    String message = 'Hola ${_quote!.customer?.name ?? "Cliente"}, '
         'le enviamos el presupuesto #${_quote!.id} para la reparación de su '
-        '${_quote!.repairOrder.deviceType} ${_quote!.repairOrder.brand} ${_quote!.repairOrder.model}.';
+        'dispositivo.';
 
     if (_includeItemDetails) {
       message += '\n\nDetalles del presupuesto:';
       for (var item in _quote!.items) {
-        message += '\n- ${item.description}: ${item.quantity} x ${currencyFormat.format(item.price)} = ${currencyFormat.format(item.total)}';
+        message += '\n- ${item.description}: ${item.quantity} x ${currencyFormat.format(item.price)} = ${currencyFormat.format(item.price * item.quantity)}';
       }
     }
 
     if (_includeTotal) {
-      message += '\n\nTotal: ${currencyFormat.format(_quote!.total)}';
-    }
-
-    if (_includeValidUntil) {
-      message += '\nVálido hasta: ${dateFormat.format(_quote!.validUntil)}';
+      message += '\n\nTotal: ${currencyFormat.format(_quote!.totalAmount)}';
     }
 
     if (_includeCustomMessage && _messageController.text.isNotEmpty) {
@@ -130,7 +125,7 @@ class _QuoteShareScreenState extends State<QuoteShareScreen> {
       // Por ahora, usamos el método existente
       await _quoteService.sendQuoteToCustomer(
         _quote!.id,
-        _quote!.repairOrder.customer.email,
+        _quote!.customer?.email ?? '',
       );
       _showSuccessSnackBar('Presupuesto enviado por email correctamente');
     } catch (e) {
@@ -141,7 +136,7 @@ class _QuoteShareScreenState extends State<QuoteShareScreen> {
   Future<void> _sendByWhatsApp() async {
     if (_quote == null) return;
 
-    final phone = _quote!.repairOrder.customer.phone;
+    final phone = _quote!.customer?.phone;
     final message = Uri.encodeComponent(_buildMessage());
 
     final whatsappUrl = 'https://wa.me/$phone?text=$message';
@@ -156,7 +151,7 @@ class _QuoteShareScreenState extends State<QuoteShareScreen> {
   Future<void> _sendBySMS() async {
     if (_quote == null) return;
 
-    final phone = _quote!.repairOrder.customer.phone;
+    final phone = _quote!.customer?.phone;
     final message = Uri.encodeComponent(_buildMessage());
 
     final smsUrl = 'sms:$phone?body=$message';
@@ -195,18 +190,41 @@ class _QuoteShareScreenState extends State<QuoteShareScreen> {
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
                               const SizedBox(height: 8),
-                              _buildInfoRow('Nombre', _quote!.repairOrder.customer.name),
-                              _buildInfoRow('Teléfono', _quote!.repairOrder.customer.phone),
-                              _buildInfoRow('Email', _quote!.repairOrder.customer.email),
+                              _buildInfoRow('Nombre', _quote!.customer?.name ?? 'N/A'),
+                              _buildInfoRow('Teléfono', _quote!.customer?.phone ?? 'N/A'),
+                              _buildInfoRow('Email', _quote!.customer?.email ?? 'N/A'),
                               const Divider(),
                               Text(
-                                'Información del Dispositivo',
+                                'Información de Dispositivos',
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
                               const SizedBox(height: 8),
-                              _buildInfoRow('Tipo', _quote!.repairOrder.deviceType),
-                              _buildInfoRow('Marca', _quote!.repairOrder.brand),
-                              _buildInfoRow('Modelo', _quote!.repairOrder.model),
+                              // Display multiple devices from repair order items
+                              if (_quote!.repairOrder?.items != null && _quote!.repairOrder!.items.isNotEmpty)
+                                ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: _quote!.repairOrder!.items.length,
+                                  itemBuilder: (context, index) {
+                                    final device = _quote!.repairOrder!.items[index];
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        if (index > 0) const Divider(height: 16),
+                                        Text(
+                                          'Dispositivo ${index + 1}:',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        _buildInfoRow('Tipo', device.deviceType ?? 'N/A'),
+                                        _buildInfoRow('Marca', device.brand ?? 'N/A'),
+                                        _buildInfoRow('Modelo', device.model ?? 'N/A'),
+                                      ],
+                                    );
+                                  },
+                                )
+                              else
+                                const Text('No hay dispositivos disponibles'),
                             ],
                           ),
                         ),

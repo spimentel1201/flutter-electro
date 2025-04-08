@@ -38,7 +38,7 @@ class ApiService {
   }
 
   // Generic HTTP methods
-  Future<dynamic> get(String endpoint) async {
+  Future<dynamic> get(String endpoint, {required Map<String, String> queryParams}) async {
     final headers = await _getHeaders();
     final response = await _client.get(
       Uri.parse('$baseUrl/$endpoint'),

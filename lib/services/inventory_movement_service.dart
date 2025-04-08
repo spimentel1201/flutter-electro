@@ -17,7 +17,7 @@ class InventoryMovementService {
   // Get all movements
   Future<List<InventoryMovement>> getAllMovements() async {
     try {
-      final response = await _apiService.get('inventory/movements');
+      final response = await _apiService.get('inventory/movements', queryParams: {});
       return (response as List)
           .map((item) => InventoryMovement.fromMap(item))
           .toList();
@@ -29,7 +29,7 @@ class InventoryMovementService {
   // Get movements by item ID
   Future<List<InventoryMovement>> getMovementsByItemId(int itemId) async {
     try {
-      final response = await _apiService.get('inventory/movements/item/$itemId');
+      final response = await _apiService.get('inventory/movements/item/$itemId', queryParams: {});
       return (response as List)
           .map((item) => InventoryMovement.fromMap(item))
           .toList();
@@ -78,7 +78,7 @@ class InventoryMovementService {
       DateTime startDate, DateTime endDate) async {
     try {
       final response = await _apiService.get(
-          'inventory/movements/date-range?start=${startDate.millisecondsSinceEpoch}&end=${endDate.millisecondsSinceEpoch}');
+          'inventory/movements/date-range?start=${startDate.millisecondsSinceEpoch}&end=${endDate.millisecondsSinceEpoch}', queryParams: {});
       return (response as List)
           .map((item) => InventoryMovement.fromMap(item))
           .toList();
@@ -91,7 +91,7 @@ class InventoryMovementService {
   Future<List<InventoryMovement>> getMovementsByType(MovementType type) async {
     try {
       final response = await _apiService.get(
-          'inventory/movements/type/${type.toString().split('.').last}');
+          'inventory/movements/type/${type.toString().split('.').last}', queryParams: {});
       return (response as List)
           .map((item) => InventoryMovement.fromMap(item))
           .toList();

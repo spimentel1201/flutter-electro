@@ -5,7 +5,7 @@ import 'package:electro_workshop/models/quote.dart';
 import 'package:electro_workshop/services/quote_service.dart';
 
 class QuoteApprovalScreen extends StatefulWidget {
-  final int quoteId;
+  final String quoteId; // Changed from int to String to match the model
   final String? accessToken;
 
   const QuoteApprovalScreen({
@@ -50,14 +50,14 @@ class _QuoteApprovalScreenState extends State<QuoteApprovalScreen> {
       final quote = await _quoteService.getQuoteById(widget.quoteId);
       
       // Verificar si el presupuesto ya fue aprobado o rechazado
-      if (quote.status == QuoteStatus.approved || quote.status == QuoteStatus.rejected) {
+      if (quote.status == QuoteStatus.APPROVED || quote.status == QuoteStatus.REJECTED) {
         setState(() {
-          _errorMessage = 'Este presupuesto ya ha sido ${quote.status == QuoteStatus.approved ? "aprobado" : "rechazado"}';
+          _errorMessage = 'Este presupuesto ya ha sido ${quote.status == QuoteStatus.APPROVED ? "aprobado" : "rechazado"}';
         });
       }
       
       // Verificar si el presupuesto ha expirado
-      if (quote.status == QuoteStatus.expired || quote.validUntil.isBefore(DateTime.now())) {
+      if (quote.status == QuoteStatus.EXPIRED) {
         setState(() {
           _errorMessage = 'Este presupuesto ha expirado';
         });
@@ -76,27 +76,27 @@ class _QuoteApprovalScreenState extends State<QuoteApprovalScreen> {
   }
 
   Future<void> _approveQuote() async {
-    await _updateQuoteStatus(QuoteStatus.approved);
+    await _updateQuoteStatus(QuoteStatus.APPROVED);
   }
 
   Future<void> _rejectQuote() async {
-    await _updateQuoteStatus(QuoteStatus.rejected);
+    await _updateQuoteStatus(QuoteStatus.REJECTED);
   }
 
-  Future<void> _updateQuoteStatus(QuoteStatus status) async {
+  Future<void> _updateQuoteStatus(String status) async {
     if (_quote == null) return;
 
     // Mostrar diálogo de confirmación
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(status == QuoteStatus.approved ? 'Aprobar Presupuesto' : 'Rechazar Presupuesto'),
+        title: Text(status == QuoteStatus.APPROVED ? 'Aprobar Presupuesto' : 'Rechazar Presupuesto'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              status == QuoteStatus.approved
+              status == QuoteStatus.APPROVED
                   ? '¿Está seguro de que desea aprobar este presupuesto?'
                   : '¿Está seguro de que desea rechazar este presupuesto?',
             ),
@@ -119,10 +119,10 @@ class _QuoteApprovalScreenState extends State<QuoteApprovalScreen> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: status == QuoteStatus.approved ? Colors.green : Colors.red,
+              backgroundColor: status == QuoteStatus.APPROVED ? Colors.green : Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: Text(status == QuoteStatus.approved ? 'Aprobar' : 'Rechazar'),
+            child: Text(status == QuoteStatus.APPROVED ? 'Aprobar' : 'Rechazar'),
           ),
         ],
       ),
@@ -144,11 +144,11 @@ class _QuoteApprovalScreenState extends State<QuoteApprovalScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              status == QuoteStatus.approved
+              status == QuoteStatus.APPROVED
                   ? 'Presupuesto aprobado correctamente'
                   : 'Presupuesto rechazado correctamente',
             ),
-            backgroundColor: status == QuoteStatus.approved ? Colors.green : Colors.red,
+            backgroundColor: status == QuoteStatus.APPROVED ? Colors.green : Colors.red,
           ),
         );
         
@@ -225,16 +225,12 @@ class _QuoteApprovalScreenState extends State<QuoteApprovalScreen> {
                                         'Presupuesto #${_quote!.id}',
                                         style: Theme.of(context).textTheme.headlineSmall,
                                       ),
-                                      _buildStatusChip(_quote!.status),
+                                      _buildStatusChip(_quote!.status as QuoteStatus),
                                     ],
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     'Fecha: ${DateFormat('dd/MM/yyyy').format(_quote!.createdAt)}',
-                                    style: Theme.of(context).textTheme.bodyLarge,
-                                  ),
-                                  Text(
-                                    'Válido hasta: ${DateFormat('dd/MM/yyyy').format(_quote!.validUntil)}',
                                     style: Theme.of(context).textTheme.bodyLarge,
                                   ),
                                 ],
@@ -255,20 +251,42 @@ class _QuoteApprovalScreenState extends State<QuoteApprovalScreen> {
                                     style: Theme.of(context).textTheme.titleLarge,
                                   ),
                                   const SizedBox(height: 8),
-                                  _buildInfoRow('Nombre', _quote!.repairOrder.customer.name),
-                                  _buildInfoRow('Teléfono', _quote!.repairOrder.customer.phone),
-                                  _buildInfoRow('Email', _quote!.repairOrder.customer.email),
+                                  _buildInfoRow('Nombre', _quote!.customer?.name ?? 'N/A'),
+                                  _buildInfoRow('Teléfono', _quote!.customer?.phone ?? 'N/A'),
+                                  _buildInfoRow('Email', _quote!.customer?.email ?? 'N/A'),
                                   const Divider(),
                                   Text(
-                                    'Información del Dispositivo',
+                                    'Información de los Dispositivos',
                                     style: Theme.of(context).textTheme.titleLarge,
                                   ),
                                   const SizedBox(height: 8),
-                                  _buildInfoRow('Tipo', _quote!.repairOrder.deviceType),
-                                  _buildInfoRow('Marca', _quote!.repairOrder.brand),
-                                  _buildInfoRow('Modelo', _quote!.repairOrder.model),
-                                  if (_quote!.repairOrder.serialNumber != null)
-                                    _buildInfoRow('Nº Serie', _quote!.repairOrder.serialNumber!),
+                                  if (_quote!.repairOrder?.items != null && _quote!.repairOrder!.items.isNotEmpty)
+                                    ListView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      itemCount: _quote!.repairOrder!.items.length,
+                                      itemBuilder: (context, index) {
+                                        final device = _quote!.repairOrder!.items[index];
+                                        return Card(
+                                          margin: const EdgeInsets.only(bottom: 8.0),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                _buildInfoRow('Tipo', device.deviceType ?? 'N/A'),
+                                                _buildInfoRow('Marca', device.brand ?? 'N/A'),
+                                                _buildInfoRow('Modelo', device.model ?? 'N/A'),
+                                                if (device.serialNumber != null)
+                                                  _buildInfoRow('Nº Serie', device.serialNumber!),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  else
+                                    const Text('No hay información de dispositivos disponible'),
                                 ],
                               ),
                             ),
@@ -313,24 +331,10 @@ class _QuoteApprovalScreenState extends State<QuoteApprovalScreen> {
                                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                                     child: Column(
                                       children: [
-                                        _buildPriceRow(
-                                          'Subtotal',
-                                          NumberFormat.currency(locale: 'es_ES', symbol: '€').format(_quote!.subtotal),
-                                        ),
-                                        if (_quote!.discount != null && _quote!.discount! > 0)
-                                          _buildPriceRow(
-                                            'Descuento (${_quote!.discount}%)',
-                                            '- ${NumberFormat.currency(locale: 'es_ES', symbol: '€').format(_quote!.discountAmount)}',
-                                          ),
-                                        if (_quote!.tax != null && _quote!.tax! > 0)
-                                          _buildPriceRow(
-                                            'Impuestos (${_quote!.tax}%)',
-                                            '+ ${NumberFormat.currency(locale: 'es_ES', symbol: '€').format(_quote!.taxAmount)}',
-                                          ),
                                         const Divider(),
                                         _buildPriceRow(
                                           'TOTAL',
-                                          NumberFormat.currency(locale: 'es_ES', symbol: '€').format(_quote!.total),
+                                          NumberFormat.currency(locale: 'es_ES', symbol: '€').format(_quote!.totalAmount),
                                           isBold: true,
                                         ),
                                       ],
@@ -341,30 +345,10 @@ class _QuoteApprovalScreenState extends State<QuoteApprovalScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-
-                          // Notas
-                          if (_quote!.notes != null && _quote!.notes!.isNotEmpty)
-                            Card(
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Notas',
-                                      style: Theme.of(context).textTheme.titleLarge,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(_quote!.notes!),
-                                  ],
-                                ),
-                              ),
-                            ),
-
                           const SizedBox(height: 32),
 
                           // Botones de aprobación/rechazo
-                          if (_quote!.status == QuoteStatus.pending)
+                          if (_quote!.status == QuoteStatus.PENDING)
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
@@ -407,23 +391,19 @@ class _QuoteApprovalScreenState extends State<QuoteApprovalScreen> {
     String text;
 
     switch (status) {
-      case QuoteStatus.draft:
-        color = Colors.grey;
-        text = 'Borrador';
-        break;
-      case QuoteStatus.pending:
+      case QuoteStatus.PENDING:
         color = Colors.orange;
         text = 'Pendiente';
         break;
-      case QuoteStatus.approved:
+      case QuoteStatus.APPROVED:
         color = Colors.green;
         text = 'Aprobado';
         break;
-      case QuoteStatus.rejected:
+      case QuoteStatus.REJECTED:
         color = Colors.red;
         text = 'Rechazado';
         break;
-      case QuoteStatus.expired:
+      case QuoteStatus.EXPIRED:
         color = Colors.purple;
         text = 'Expirado';
         break;

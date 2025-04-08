@@ -101,7 +101,7 @@ class AuthService {
     }
 
     try {
-      final response = await _apiService.get('auth/user');
+      final response = await _apiService.get('auth/user', queryParams: {});
       final user = User.fromJson(response);
       _currentUser = user;
       return user;
